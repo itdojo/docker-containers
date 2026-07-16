@@ -1,0 +1,9 @@
+.DS_Store
+.env
+*.log
+
+# One stack re-includes its .env on purpose: https-right-quick/.env holds demo
+# credentials that are part of the exercise, published since 2026-03. The exception
+# lives in https-right-quick/.gitignore, not here — that file has its own `.env` rule,
+# and a nested .gitignore beats a root-level negation, so it cannot be overridden from
+# this file. See docker-containers-is-a-compose-stack-library.md in Dojobrain.

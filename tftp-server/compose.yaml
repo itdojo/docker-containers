@@ -1,0 +1,9 @@
+services:
+  tftp:
+    build: .
+    container_name: tftp_server
+    volumes:
+      - ./files:/var/tftpboot
+      - ./config/tftpd-hpa.conf:/etc/default/tftpd-hpa
+    network_mode: "host"
+    restart: "no"

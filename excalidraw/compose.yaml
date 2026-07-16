@@ -1,0 +1,8 @@
+services:
+  excalidraw:
+    # Upstream publishes only :latest plus sha-* tags from 2021 — nothing pinnable.
+    image: excalidraw/excalidraw:latest
+    container_name: excalidraw
+    ports:
+      - "3000:80"
+    restart: unless-stopped

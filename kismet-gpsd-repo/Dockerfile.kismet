@@ -1,0 +1,51 @@
+# Single-stage Kismet image — installs Kismet from the official
+# kismetwireless.net apt repository (no source compile, no swap file).
+#
+# Build target: ~3-5 minutes on most hardware, including low-power SBCs
+# such as Gateworks Venice.  Compare to the source-build variant which
+# can take 60-90 minutes on the same hardware and requires an 8 GB
+# swap file to avoid OOM kills during compilation.
+#
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+ENV KISMET_CONF_DIR=/etc/kismet
+ENV KISMET_LOG_DIR=/kismet_logs
+
+# Bootstrap utilities needed to add the Kismet repo.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        tzdata \
+        wget && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime
+
+# Install the Kismet apt-repo signing key into the apt keyrings dir.
+RUN wget -qO- https://www.kismetwireless.net/repos/kismet-release.gpg.key \
+        | gpg --dearmor \
+        | tee /usr/share/keyrings/kismet-archive-keyring.gpg >/dev/null
+
+# Add the Kismet apt repository (Ubuntu 24.04 / noble).
+RUN echo 'deb [signed-by=/usr/share/keyrings/kismet-archive-keyring.gpg] https://www.kismetwireless.net/repos/apt/git/noble noble main' \
+        > /etc/apt/sources.list.d/kismet.list
+
+# Pre-seed the setuid-helpers debconf prompt so apt install runs
+# non-interactively.  Without this, the build hangs forever waiting
+# for a human to answer the purple TUI dialog.
+RUN echo "kismet-core kismet-common/install-setuid boolean true" \
+        | debconf-set-selections
+
+# Install Kismet from the apt repo.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends kismet && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p $KISMET_LOG_DIR $KISMET_CONF_DIR
+
+EXPOSE 2501
+
+CMD ["kismet"]

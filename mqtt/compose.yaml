@@ -1,0 +1,19 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./data/mqtt_users.txt:/mosquitto/data/mqtt_users.txt
+      - ./log/mosquitto.log:/mosquitto/log/mosquitto.log
+      - ./healthcheck.sh:/healthcheck.sh
+    restart: always
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "sh", "/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

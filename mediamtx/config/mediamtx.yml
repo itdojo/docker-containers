@@ -1,0 +1,98 @@
+###############################################
+# MediaMTX — Pi-side configuration (lab edition)
+#
+# Lean config for a single Pi that owns one camera.
+# MediaMTX merges any unset key with its built-in default,
+# so this file only contains the keys students will actually
+# read or change.  For the full reference, run:
+#   docker run --rm --entrypoint cat \
+#     bluenviron/mediamtx:latest-ffmpeg-rpi /mediamtx.yml
+###############################################
+
+###############################################
+# Global
+###############################################
+logLevel: info
+logDestinations: [stdout, file]
+logFile: /mediamtx.log
+
+###############################################
+# Servers — RTSP, HLS, WebRTC, API
+###############################################
+rtsp: true
+rtspAddress: :8554
+rtspTransports: [tcp]    # force TCP — kinder to lossy WiFi / HaLow links
+
+hls: true
+hlsAddress: :8888
+hlsVariant: lowLatency
+
+webrtc: true
+webrtcAddress: :8889
+# Additional WebRTC hosts come from MTX_WEBRTCADDITIONALHOSTS in .env
+
+api: true
+apiAddress: 127.0.0.1:9997
+
+###############################################
+# Path defaults
+###############################################
+pathDefaults:
+  source: publisher
+  sourceOnDemand: false
+  overridePublisher: true
+
+  # Continuous recording is OFF by default in the Pi-side stack —
+  # recording lives on the Frigate host (Lab 02).  Flip this to
+  # `true` if you want a local copy on the Pi as well.
+  record: false
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordFormat: fmp4
+  recordSegmentDuration: 1h
+  recordDeleteAfter: 1d
+
+###############################################
+# Camera paths
+#
+# Pick the entry that matches your camera and edit it.
+# Each path becomes a stream at:
+#   rtsp://<pi-ip>:8554/<name>
+#   http://<pi-ip>:8889/<name>     (WebRTC)
+#   http://<pi-ip>:8888/<name>     (HLS)
+#
+# Tunables for low-bandwidth links live in Lab 03.
+###############################################
+paths:
+
+  # ── CSI camera owned by MediaMTX (Pi Camera Module 3, IMX219, etc.) ──
+  # Works for any libcamera-supported sensor.  The container needs
+  # privileged + /run/udev + /dev/shm tmpfs — already set in compose.yaml.
+  # cam:
+  #  source: rpiCamera
+  #  rpiCameraCamID: 0
+  #  rpiCameraWidth: 1280
+  #  rpiCameraHeight: 720
+  #  rpiCameraFPS: 30
+  #  rpiCameraBitrate: 2500000
+  #  rpiCameraIDRPeriod: 60
+  #  rpiCameraCodec: auto
+  #  rpiCameraVFlip: false
+  #  rpiCameraHFlip: false
+
+  # ── USB camera owned by MediaMTX (Logitech 1080p, any UVC webcam) ──
+  # MediaMTX runs ffmpeg on demand to pull from /dev/video0 and
+  # publish back into the path.  Adjust the device node and encode
+  # settings for your camera.  Uncomment to enable.
+  usb:
+    runOnDemand: >
+      ffmpeg -f v4l2 -framerate 30 -video_size 1280x720
+      -i /dev/video0
+      -c:v libx264 -preset ultrafast -tune zerolatency
+      -b:v 2500k -g 60 -f rtsp rtsp://localhost:8554/$MTX_PATH
+    runOnDemandRestart: yes
+    runOnDemandStartTimeout: 10s
+    runOnDemandCloseAfter: 10s
+
+  # Catch-all for any other path published to this server
+  # (e.g., an ad-hoc `rpicam-vid | ffmpeg` push during testing).
+  all_others:

@@ -1,0 +1,10 @@
+services:
+  server:
+    build:
+      context: .
+    ports:
+      - "9443:443"
+    volumes:
+      - ./www-data:/app/www-data
+    env_file:
+      - .env

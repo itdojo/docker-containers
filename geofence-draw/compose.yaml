@@ -1,0 +1,28 @@
+###############################################
+# Geofence drawing tool — Lab 11a
+#
+# A single nginx:alpine service that serves a static Leaflet +
+# Leaflet-Geoman page.  Draw a rectangle or polygon with the mouse and
+# the page hands you the vertices in the format geofence.py consumes
+# (a [[lat, lon], ...] list, plus the .env four-corner block for boxes).
+#
+# Map tiles default to public OpenStreetMap (global, needs internet).
+# To draw against the offline tiles from Lab 15 instead, edit the CONFIG
+# block at the top of www/index.html — nothing in compose changes.
+#
+# This stack is self-contained: no broker, no database, no volumes.
+#
+# The page is baked into the image (see Dockerfile) instead of being
+# bind-mounted, so it serves correctly regardless of the host directory's
+# permissions.  After editing anything under www/ (e.g. the CONFIG block
+# in index.html), re-run `docker compose up -d --build` to rebuild.
+###############################################
+
+services:
+  geofence-draw:
+    build: .
+    image: geofence-draw
+    container_name: geofence-draw
+    ports:
+      - "${DRAW_TOOL_PORT:-2023}:80"
+    restart: unless-stopped

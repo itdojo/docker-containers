@@ -1,0 +1,38 @@
+name: kismet-gpsd
+
+services:
+
+  kismet:
+    build:
+      context: .
+      dockerfile: Dockerfile.kismet
+    image: kismet-ppa:local
+    container_name: kismet
+    network_mode: host
+    restart: unless-stopped
+    devices:
+      - "/dev/bus/usb:/dev/bus/usb"
+    volumes:
+      - ./kismet_config/kismet_site.conf:/usr/local/etc/kismet_site.conf
+      - ./kismet_logs:/kismet_logs
+    environment:
+      - KISMET_CONF_DIR=/usr/local/etc
+      - KISMET_LOG_DIR=/kismet_logs
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      - gpsd
+
+  gpsd:
+    build:
+      context: .
+      dockerfile: Dockerfile.gpsd
+    image: alpine-gpsd:local
+    container_name: gpsd
+    network_mode: host
+    restart: unless-stopped
+    devices:
+      - "${GPS_DEVICE}:${GPS_DEVICE}"
+    environment:
+      - GPS_DEVICE=${GPS_DEVICE}
