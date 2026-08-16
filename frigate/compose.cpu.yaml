@@ -1,0 +1,31 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🐌 DETECTOR OVERLAY — CPU, NO ACCELERATOR 🐌
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# The lowest common denominator. No devices, no drivers, runs anywhere the
+# image runs. Use it to prove the stack works before the accelerator arrives,
+# and on hosts that have no supported accelerator at all — a Gateworks Venice
+# board (NXP i.MX8M) with no Coral attached is exactly this case.
+#
+#   COMPOSE_FILE=compose.yaml:compose.ports.yaml:compose.cpu.yaml
+#
+# Pair with the `cpu` detector block in config/config.yml.
+#
+# Expect one or two cameras at 5 fps detect on an i.MX8M, three or four on a
+# Pi 5. Software video decoding is competing for the same cores, so the
+# substream configuration in config.yml is not optional here.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        🐳 FRIGATE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+services:
+  frigate:
+    # Nothing to add. The base stack is already a working CPU deployment; this
+    # file exists so that COMPOSE_FILE always names a detector overlay and the
+    # line reads the same on every host.
+    #
+    # A Gateworks Venice board is generic arm64, not a Raspberry Pi. Set
+    # FRIGATE_IMAGE to the -standard-arm64 tag in .env — the plain tag is the
+    # Pi-optimized build on arm64 and expects Pi firmware interfaces.
+    labels:
+      - "org.itdojo.frigate.detector=cpu"

@@ -1,0 +1,315 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 📊 NTOPNG — INLINE-BRIDGE SENSOR STACK 📊
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+#   Host role : inline L2 bridge (bridge0), at one of two network positions
+#                 ext = outside the firewall, between the ISP and its WAN port
+#                 int = inside the firewall, inline on a LAN link
+#               POSITION in .env picks one. THIS FILE IS IDENTICAL AT BOTH —
+#               the position is a property of the host's networking, not of
+#               the container stack, and everything it changes (which netplan,
+#               the mDNS drop-in, how strict WEB_BIND is) lives in
+#               host-setup.sh and etc/netplan/.
+#   Host spec : Ubuntu Server 24.04, 32 GB RAM
+#   Monitors  : bridge0 ONLY
+#   Stack     : netprep (one-shot) -> redis -> ntopng
+#
+# ntopng runs with network_mode: host because a container network namespace
+# cannot see bridge0. Everything else stays namespaced and binds to loopback.
+#
+# Bring it up with host-setup.sh, which stages the host first. Bringing the
+# stack up before the bridge is promiscuous yields a working ntopng that sees
+# almost nothing — a confusing failure to debug.
+#
+# REBOOT: docker's own restart policy does NOT honour depends_on, so on a plain
+# reboot ntopng would come back without netprep having re-run. host/
+# ntopng-tap.service runs `docker compose up -d` at boot, which re-evaluates
+# the whole graph. host-setup.sh installs and enables it.
+#
+# Memory budget (32 GB host):
+#     ntopng     12G      redis  4G      free ~16G
+# (redis holds 2gb of data under a 4G ceiling: an RDB fork's copy-on-write can
+# transiently double RSS, and memswap_limit == mem_limit means no swap to
+# absorb it. The gap is the insurance, not slack.)
+# The ~16G left unallocated is deliberate: kernel socket and NIC buffers for
+# burst absorption. Memory handed to a process is memory the kernel cannot use
+# to absorb a traffic spike.
+#
+# There is no flow-history store. ClickHouse export is an ntopng Enterprise
+# feature and this sensor runs community mode — see the flow-export note in the
+# ntopng command block. The 8G it used to hold went to ntopng's flow and host
+# tables instead, which is capacity you can actually use here.
+#
+# This file uses mem_limit / mem_reservation / memswap_limit rather than
+# deploy.resources, because memswap_limit has no deploy equivalent and swap
+# needs to be off for the capture path.
+#
+# See README.md for deployment order and host-level prerequisites.
+
+name: ntopng-tap
+
+x-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                       🔧 NETPREP — ONE-SHOT INTERFACE PREPARATION
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  # Exits 0. Redundant if netplan + the systemd-networkd Promiscuous= drop-in
+  # are working
+  # (verify with: ip -d link show bridge0 | grep -i promisc
+  #               ethtool -k enp1s0 | grep -E 'generic-receive|tcp-segmentation')
+  # Idempotent and costs nothing, so it is kept as a second line of defence
+  # against the known netplan offload-key bug (LP #1979704).
+  #
+  # To remove it: delete this service AND the netprep entry under ntopng's
+  # depends_on. Leave BRIDGE_PORTS in .env either way — host-setup.sh uses it
+  # for ring buffers, offload verification and the udev re-trigger.
+  #
+  # WHY IT MATTERS: a Linux bridge master only passes forwarded frames up to
+  # AF_PACKET taps when the bridge device itself is promiscuous. Without that,
+  # ntopng on bridge0 sees only host-destined traffic.
+  netprep:
+    image: nicolaka/netshoot:latest
+    container_name: ntopng-netprep
+    network_mode: host
+    cap_drop: [ALL]
+    cap_add:
+      - NET_ADMIN
+    restart: "no"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        ip link set "${MON_IF:?MON_IF is unset — is .env present?}" promisc on
+        for i in ${MON_IF} ${BRIDGE_PORTS}; do
+          ip link set "$$i" promisc on || true
+          ethtool -K "$$i" gro off gso off tso off lro off rx-vlan-offload off 2>/dev/null || true
+        done
+        echo "--- capture interfaces ready ---"
+        ip -br link show "${MON_IF}"
+    logging: *logging
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                   💾 REDIS — NTOPNG BACKING STORE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  # Mandatory: config, host cache and alert state all live here.
+  #
+  # maxmemory-policy MUST stay noeviction. Under noeviction, hitting maxmemory
+  # is a hard failure (writes rejected, ntopng loses config and alert state)
+  # rather than graceful degradation — so headroom is insurance, not waste.
+  #
+  # mem_limit sits at 2x maxmemory because RDB snapshotting forks, and
+  # copy-on-write can transiently push RSS toward 2x the dataset size. Keep
+  # that ratio if you retune: the earlier 3gb-under-4g left only 1.33x, which
+  # is a cgroup OOM kill mid-snapshot — exactly the state loss noeviction is
+  # there to prevent. host/98-capture-tuning.conf sets vm.overcommit_memory=1,
+  # which redis requires for the fork to succeed reliably.
+  redis:
+    image: redis:7-alpine
+    container_name: ntopng-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --save
+      - "300 10"
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - "${REDIS_MAXMEM:-2gb}"
+      - --maxmemory-policy
+      - "noeviction"
+      - --tcp-keepalive
+      - "60"
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    cap_add:
+      # required by the image entrypoint: chown /data, then gosu to the redis user
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    mem_limit: ${REDIS_MEM:-4g}
+    mem_reservation: 512m
+    memswap_limit: ${REDIS_MEM:-4g}     # == mem_limit disables swap for redis
+    logging: *logging
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                            📊 NTOPNG — THE SENSOR
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  # SIZING NOTE: mem_limit does not make ntopng use more memory. Its footprint
+  # is driven by max-num-flows / max-num-hosts. Raise those to buy capacity;
+  # mem_limit is only the blast radius if it leaks or a scan explodes the host
+  # table. When the flow cap is reached ntopng purges aggressively and truncates
+  # conversations mid-flight, so the caps are a data-quality setting as much as
+  # a capacity one. Watch the log for "too many flows" / "too many hosts".
+  ntopng:
+    # ntop/ntopng:latest, NOT ntop/ntopng.dev:latest and not :stable.
+    #   :stable        does not exist. Only "latest" is published for either repo.
+    #   .dev:latest    is the development build; among other differences it ships
+    #                  no /usr/bin/clickhouse-client.
+    #   :latest        is the 6.6-stable build.
+    image: ntop/ntopng:latest
+    container_name: ntopng
+    restart: unless-stopped
+
+    # Bypass the image's /run.sh, which is:
+    #     /etc/init.d/redis-server start
+    #     ntopng "$@" $NTOP_CONFIG
+    # That bundled redis is redundant here — we run a tuned one with memory
+    # limits, noeviction and a persistence volume — and under network_mode:
+    # host it would race our published 127.0.0.1:6379. Starting it also needs
+    # CAP_CHOWN on /run/redis, which is where the "chown: Operation not
+    # permitted" lines came from.
+    entrypoint: ["ntopng"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      netprep:
+        condition: service_completed_successfully
+
+    # Required: bridge0 lives in the host network namespace.
+    network_mode: host
+
+    cap_drop: [ALL]
+    cap_add:
+      - NET_RAW        # AF_PACKET socket
+      - NET_ADMIN      # promiscuous mode / interface stats
+      - DAC_OVERRIDE   # see below
+    # DAC_OVERRIDE is not optional here. The image ships /var/lib/ntopng as
+    # mode 0700 owned by ntopng:ntop (uid 999), and a named volume inherits
+    # that ownership. --dont-change-user keeps the process as uid 0, and root
+    # WITHOUT this capability still cannot enter a 0700 directory it does not
+    # own — which is the "Unable to open lock file /var/lib/ntopng/.lock
+    # [Permission denied]" restart loop. Verified both ways: denied with the
+    # capability dropped, writes with it added.
+    security_opt:
+      - no-new-privileges:true
+
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+
+    volumes:
+      - ntopng-data:/var/lib/ntopng
+      - ntopng-log:/var/log/ntopng
+      - /etc/localtime:/etc/localtime:ro
+
+    # Verify flag spelling against your build: docker run --rm ntop/ntopng:latest -h
+    command:
+      # --- identity / privileges -------------------------------------------
+      - --dont-change-user                       # already namespaced; don't drop to nobody
+      # - --community                            # pin Community edition (kills the trial nag)
+
+      # --- capture ----------------------------------------------------------
+      - --interface=${MON_IF}                    # THE ONLY interface ntopng touches
+      - --local-networks=${LOCAL_NETS}           # everything else is treated as remote
+      - --dns-mode=1                             # 1 = resolve local hosts only
+      # - --packet-filter=not (host 10.9.9.10 and port 22)
+      #                                          # BPF: exclude your own mgmt traffic
+
+      # --- storage ----------------------------------------------------------
+      - --data-dir=/var/lib/ntopng
+      - --redis=127.0.0.1:6379@0                 # host netns -> loopback-published redis
+      #                                          # with auth: host:port:password@db
+
+      # --- web UI -----------------------------------------------------------
+      # ntopng ships admin/admin, so what this binds to matters more than any
+      # other line in the file. The right answer depends on POSITION:
+      #
+      #   ext  the management NIC address, or 127.0.0.1 plus an SSH tunnel.
+      #        Never a wildcard — this box is on the dirty side of the
+      #        firewall, and host-setup.sh refuses to start the stack if you
+      #        try. bridge0 is addressless there, so it is not an option here.
+      #
+      #   int  0.0.0.0 is expected. bridge0's address comes from DHCP and the
+      #        bridge is `optional: true`, so the stack can start before the
+      #        lease lands and a pinned address would fail to bind on a cold
+      #        boot. host-setup.sh warns and asks rather than refusing.
+      #
+      # The :-127.0.0.1 default is load-bearing, not decoration, and it stays
+      # loopback for BOTH positions. Compose treats an unset variable as a
+      # blank string and only prints a WARN, so a missing or half-edited .env
+      # would expand this to "--http-port=:3000", which ntopng binds on every
+      # interface. Failing closed to loopback is right even for int: an int
+      # sensor that is unreachable is a nuisance, an ext one that is reachable
+      # is an incident.
+      - --http-port=${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}
+      - --https-port=0                           # 0 disables the HTTPS listener
+
+      # --- sizing -----------------------------------------------------------
+      # Sized for 32 GB with no flow-history store. These are the knobs that
+      # actually consume the RAM; NTOPNG_MEM is only the blast radius.
+      - --max-num-flows=${MAX_FLOWS:-1500000}
+      - --max-num-hosts=${MAX_HOSTS:-400000}
+      - --disable-autologout
+      # - --disable-alerts
+
+      # --- flow export ------------------------------------------------------
+      # Deliberately absent. --dump-flows=clickhouse (and kafka, and the
+      # clickhouse-cluster/cloud variants) are Enterprise M/L/XL/XXL features.
+      # With no /etc/ntopng.license ntopng logs "[LICENSE] ntopng will start in
+      # community mode" and ignores the flag, so shipping it would reserve 8 GB
+      # and a whole service for output that never arrives. If you buy a license,
+      # re-add the flag, the clickhouse service, and --fail-invalid-license so a
+      # lapsed licence fails loudly instead of silently degrading.
+
+    healthcheck:
+      # swap for ["CMD-SHELL", "pgrep ntopng >/dev/null"] if curl isn't in the image
+      #
+      # Reusing WEB_BIND here is correct at BOTH positions, including the int
+      # default of 0.0.0.0. Linux maps a connect() to INADDR_ANY onto
+      # loopback, so `curl http://0.0.0.0:3000/` reaches a listener bound to
+      # the wildcard — verified, not assumed. Do not "fix" this to a hardcoded
+      # 127.0.0.1: under ext, WEB_BIND is the management NIC address and
+      # nothing is listening on loopback, so the hardcoded form is the one
+      # that breaks.
+      test: ["CMD-SHELL", "curl -fsS http://${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+      core: 0
+
+    mem_limit: ${NTOPNG_MEM:-12g}
+    mem_reservation: 2g
+    memswap_limit: ${NTOPNG_MEM:-12g}  # no swap: a swapped-out flow table means drops
+    oom_score_adj: -500                # prefer killing almost anything else first
+
+    stop_grace_period: 30s
+    logging: *logging
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        📦 VOLUMES
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+volumes:
+  redis-data:
+  ntopng-data:
+  ntopng-log:
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼

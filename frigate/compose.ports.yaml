@@ -1,69 +1,51 @@
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-# 📶 KISMET — IMAGE BUILD (APT REPO) 📶
+# 🌐 NETWORK OVERLAY — PUBLISH ON THE HOST 🌐
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-# Single-stage Kismet image — installs Kismet from the official
-# kismetwireless.net apt repository (no source compile, no swap file).
+# The normal case: Frigate publishes directly on the host's own interfaces.
 #
-# Build target: ~3-5 minutes on most hardware, including low-power SBCs
-# such as Gateworks Venice.  Compare to the source-build variant which
-# can take 60-90 minutes on the same hardware and requires an 8 GB
-# swap file to avoid OOM kills during compilation.
+#   COMPOSE_FILE=compose.yaml:compose.ports.yaml:compose.<detector>.yaml
+#
+# Use compose.wireguard.yaml INSTEAD of this file — never both — if Frigate
+# should reach its cameras through a WireGuard tunnel the container owns.
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                       🐧 BASE IMAGE & ENVIRONMENT
+#                                                                                        🐳 FRIGATE
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-FROM ubuntu:24.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
-ENV KISMET_CONF_DIR=/etc/kismet
-ENV KISMET_LOG_DIR=/kismet_logs
-
-# Bootstrap utilities needed to add the Kismet repo.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        ca-certificates \
-        gnupg \
-        tzdata \
-        wget && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime
+services:
+  frigate:
+    ports:
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                  🔓 AUTHENTICATED UI & API — 8971
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+      # The port you actually use. TLS plus login plus role-based access.
+      # FRIGATE_UI_BIND defaults to all interfaces; set it to a single address
+      # in .env to pin the UI to one NIC.
+      - "${FRIGATE_UI_BIND:-0.0.0.0}:${FRIGATE_UI_PORT:-8971}:8971"
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                          🔑 KISMET APT REPOSITORY
+#                                                                     ⚠️ UNAUTHENTICATED API — 5000
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-# Install the Kismet apt-repo signing key into the apt keyrings dir.
-RUN wget -qO- https://www.kismetwireless.net/repos/kismet-release.gpg.key \
-        | gpg --dearmor \
-        | tee /usr/share/keyrings/kismet-archive-keyring.gpg >/dev/null
-
-# Add the Kismet apt repository (Ubuntu 24.04 / noble).
-RUN echo 'deb [signed-by=/usr/share/keyrings/kismet-archive-keyring.gpg] https://www.kismetwireless.net/repos/apt/git/noble noble main' \
-        > /etc/apt/sources.list.d/kismet.list
+      # Port 5000 is Frigate's internal API with NO authentication of any kind.
+      # Anyone who can reach it can view every camera and delete recordings.
+      # It stays unpublished on purpose. Uncomment ONLY to bind it to loopback
+      # for a local integration, and never to 0.0.0.0.
+      #- "127.0.0.1:5000:5000"
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                                 📦 INSTALL KISMET
+#                                                                           📺 RTSP RESTREAM — 8554
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-# Pre-seed the setuid-helpers debconf prompt so apt install runs
-# non-interactively.  Without this, the build hangs forever waiting
-# for a human to answer the purple TUI dialog.
-RUN echo "kismet-core kismet-common/install-setuid boolean true" \
-        | debconf-set-selections
-
-# Install Kismet from the apt repo.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends kismet && \
-    rm -rf /var/lib/apt/lists/*
+      # go2rtc re-publishes every camera here, plus rtsp://<host>:8554/birdseye.
+      # One connection to the camera, many consumers — this is what keeps a
+      # second viewer from opening a second stream against the camera itself.
+      - "${FRIGATE_RTSP_BIND:-0.0.0.0}:${FRIGATE_RTSP_PORT:-8554}:8554"
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                                        🚀 RUNTIME
+#                                                                                   🕸 WEBRTC — 8555
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-RUN mkdir -p $KISMET_LOG_DIR $KISMET_CONF_DIR
-
-EXPOSE 2501
-
-CMD ["kismet"]
-
-# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+      # Low-latency live view in the browser. Needs both TCP and UDP. If
+      # viewers are not on this subnet, also set go2rtc.webrtc.candidates in
+      # config.yml — same problem, same fix, as MTX_WEBRTCADDITIONALHOSTS on
+      # the mediamtx side.
+      - "${FRIGATE_WEBRTC_BIND:-0.0.0.0}:${FRIGATE_WEBRTC_PORT:-8555}:8555/tcp"
+      - "${FRIGATE_WEBRTC_BIND:-0.0.0.0}:${FRIGATE_WEBRTC_PORT:-8555}:8555/udp"

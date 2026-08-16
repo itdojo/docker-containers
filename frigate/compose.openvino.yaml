@@ -1,0 +1,38 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🧿 DETECTOR OVERLAY — OPENVINO (INTEL) 🧿
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Intel iGPU or NPU. LattePanda Delta and Sigma, and any other x86 host with
+# Intel graphics. Fast, and no dongle to lose.
+#
+#   COMPOSE_FILE=compose.yaml:compose.ports.yaml:compose.openvino.yaml
+#
+# Pair with the `ov` detector block in config/config.yml — it is the one left
+# uncommented in config.yml.example.
+#
+# This overlay does NOT work on Raspberry Pi or Gateworks. Those are arm64 and
+# have no Intel graphics; use compose.coral-usb.yaml or compose.cpu.yaml.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        🐳 FRIGATE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+services:
+  frigate:
+    devices:
+      # The render node. Serves BOTH OpenVINO detection and VAAPI video
+      # decoding, which is why this profile needs no separate decode overlay.
+      # Confirm the number — a host with two GPUs may expose renderD129.
+      #   ls -l /dev/dri/
+      - /dev/dri/renderD128:/dev/dri/renderD128
+
+      # LattePanda Sigma and other Meteor Lake / Core Ultra parts also expose a
+      # dedicated NPU here. Uncomment this AND set `device: NPU` in the ov
+      # detector block to use it instead of the iGPU.
+      #- /dev/accel/accel0:/dev/accel/accel0
+
+    # The container user must be in the host's `render` group to open the node.
+    # If Frigate logs a permission error on /dev/dri/renderD128, put the host's
+    # numeric render GID here — the name does not resolve inside the container.
+    #   getent group render
+    group_add:
+      - "${RENDER_GID:-105}"

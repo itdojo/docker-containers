@@ -1,0 +1,99 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🔒 NETWORK OVERLAY — WIREGUARD SIDECAR 🔒
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# The default network overlay. Frigate ingests from LOCAL LAN cameras and from
+# cameras across a WireGuard tunnel AT THE SAME TIME, through one instance. The
+# host is not on the VPN and does not need to be — the container owns the
+# tunnel.
+#
+#   COMPOSE_FILE=compose.yaml:compose.wireguard.yaml:compose.<detector>.yaml
+#
+# Use this INSTEAD of compose.ports.yaml, never alongside it.
+#
+# How it works: the sidecar creates the tunnel in its own network namespace,
+# and Frigate joins that namespace rather than having one of its own. That is
+# why every published port below sits on the `wireguard` service — Frigate has
+# no network stack to publish from. Compose rejects `ports:` on a service using
+# network_mode, which is exactly why the base file ships without them.
+#
+# Why LAN cameras still work: wg-quick installs routes only for the prefixes in
+# AllowedIPs. Its policy-routing machinery is a special case that fires only
+# when AllowedIPs carries a default route. With a split tunnel the namespace
+# keeps its ordinary default route out through the Docker bridge, so tunnel
+# subnets go to wg0 and everything else — LAN cameras, mosquitto, replies to
+# LAN browsers — goes the normal way.
+#
+# That makes wireguard/wg0.conf load-bearing for cameras it has nothing to do
+# with. Read README "WireGuard" before editing it; the subnet-overlap and
+# restart-coupling notes are the two that cost real time.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                              🔒 WIREGUARD SIDECAR
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+services:
+  wireguard:
+    container_name: frigate-wireguard
+    image: lscr.io/linuxserver/wireguard:latest
+    restart: unless-stopped
+
+    # NET_ADMIN creates the interface and installs routes. SYS_MODULE is only
+    # needed when the host kernel has WireGuard as a loadable module that is
+    # not already loaded; leave it commented and check with `modinfo wireguard`
+    # first — see the README.
+    cap_add:
+      - NET_ADMIN
+      #- SYS_MODULE
+
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+    # Without this, replies leave with a source address the tunnel rejects and
+    # the link comes up but carries nothing.
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # PEERS is deliberately unset. Setting it puts the image into SERVER
+      # mode and it generates its own keys, ignoring your client config.
+
+    volumes:
+      # Client mode: the image runs every *.conf it finds here. wg0.conf.example
+      # is skipped because it does not end in .conf.
+      - ./wireguard:/config/wg_confs
+      # Only needed with SYS_MODULE above.
+      #- /lib/modules:/lib/modules:ro
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                               🌐 PUBLISHED PORTS (ON THE SIDECAR)
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+    # Identical to compose.ports.yaml, moved onto the namespace owner. Inbound
+    # LAN traffic still arrives over the host's normal interface — the tunnel
+    # is split, so the default route is untouched and replies go back out the
+    # way they came.
+    #
+    # Restarting this service destroys Frigate's whole network stack, and with
+    # mixed ingest that takes the LAN cameras and the UI down as well, not just
+    # the remote cameras. Docker will not restart the dependent container for
+    # you. Bounce it yourself:  docker compose restart frigate
+    ports:
+      - "${FRIGATE_UI_BIND:-0.0.0.0}:${FRIGATE_UI_PORT:-8971}:8971"
+      #- "127.0.0.1:5000:5000"
+      - "${FRIGATE_RTSP_BIND:-0.0.0.0}:${FRIGATE_RTSP_PORT:-8554}:8554"
+      - "${FRIGATE_WEBRTC_BIND:-0.0.0.0}:${FRIGATE_WEBRTC_PORT:-8555}:8555/tcp"
+      - "${FRIGATE_WEBRTC_BIND:-0.0.0.0}:${FRIGATE_WEBRTC_PORT:-8555}:8555/udp"
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                       🐳 FRIGATE JOINS THE TUNNEL
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  frigate:
+    # Frigate now has no interfaces of its own. `mosquitto` still resolves,
+    # because the sidecar is on the project's default network and Frigate is
+    # inside the sidecar's namespace.
+    network_mode: "service:wireguard"
+    depends_on:
+      - wireguard
+      - mosquitto

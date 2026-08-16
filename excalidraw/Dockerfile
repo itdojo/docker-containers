@@ -1,58 +1,37 @@
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-# 📡 KISMET + GPSD — WIRELESS SURVEY STACK 📡
+# 🎨 EXCALIDRAW — IMAGE BUILD 🎨
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-# Two containers on host networking: kismet captures, gpsd feeds it position.
-# Host networking is what lets kismet reach gpsd on 127.0.0.1:2947 without a
-# shared bridge — see kismet_config/kismet_site.conf.
-#
-# GPS_DEVICE comes from the environment (or a .env alongside this file) and is
-# the serial node the GPS puck enumerates as, e.g. /dev/ttyUSB0.
-
-name: kismet-gpsd
-
-services:
+# Two stages: build the app from upstream git, then serve the bundle out of
+# nginx:alpine. The node toolchain stays in the build stage and is discarded,
+# so the shipped image is nginx plus static files.
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                               📶 KISMET — CAPTURE
+#                                                                                    🔨 BUILD STAGE
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-  kismet:
-    build:
-      context: .
-      dockerfile: Dockerfile.kismet
-    image: kismet-repo:local
-    container_name: kismet
-    network_mode: host
-    restart: unless-stopped
-    devices:
-      - "/dev/bus/usb:/dev/bus/usb"      # the WiFi capture adapters
-    volumes:
-      # Site config overrides /etc/kismet/kismet.conf; logs land on the host.
-      - ./kismet_config/kismet_site.conf:/etc/kismet/kismet_site.conf
-      - ./kismet_logs:/kismet_logs
-    environment:
-      - KISMET_CONF_DIR=/etc/kismet
-      - KISMET_LOG_DIR=/kismet_logs
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    depends_on:
-      - gpsd
+FROM node:18-alpine AS build
+
+WORKDIR /app
+
+# Clone Excalidraw and produce the static bundle.
+RUN apk add --no-cache git && \
+    git clone https://github.com/excalidraw/excalidraw.git . && \
+    yarn install --frozen-lockfile && \
+    yarn build:app:docker
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                                🧭 GPSD — POSITION
+#                                                                               🚀 PRODUCTION STAGE
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-  gpsd:
-    build:
-      context: .
-      dockerfile: Dockerfile.gpsd
-    image: alpine-gpsd:local
-    container_name: gpsd
-    network_mode: host
-    restart: unless-stopped
-    devices:
-      - "${GPS_DEVICE}:${GPS_DEVICE}"
-    environment:
-      - GPS_DEVICE=${GPS_DEVICE}
+FROM nginx:alpine
+
+# Built files from the build stage
+COPY --from=build /app/excalidraw-app/build /usr/share/nginx/html
+
+# nginx site config — see nginx.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼

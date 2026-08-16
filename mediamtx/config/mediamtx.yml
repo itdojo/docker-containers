@@ -1,24 +1,24 @@
-###############################################
-# MediaMTX — Pi-side configuration (lab edition)
-#
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 📸 MEDIAMTX — PI-SIDE CONFIGURATION (ITDOJO LAB EDITION) 📸
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
 # Lean config for a single Pi that owns one camera.
 # MediaMTX merges any unset key with its built-in default,
 # so this file only contains the keys students will actually
 # read or change.  For the full reference, run:
 #   docker run --rm --entrypoint cat \
 #     bluenviron/mediamtx:latest-ffmpeg-rpi /mediamtx.yml
-###############################################
 
-###############################################
-# Global
-###############################################
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                🔧 GLOBAL SETTINGS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 logLevel: info
 logDestinations: [stdout, file]
 logFile: /mediamtx.log
 
-###############################################
-# Servers — RTSP, HLS, WebRTC, API
-###############################################
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                               🌐 SERVERS — RTSP, HLS, WEBRTC, API
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 rtsp: true
 rtspAddress: :8554
 rtspTransports: [tcp]    # force TCP — kinder to lossy WiFi / HaLow links
@@ -32,67 +32,272 @@ webrtcAddress: :8889
 # Additional WebRTC hosts come from MTX_WEBRTCADDITIONALHOSTS in .env
 
 api: true
-apiAddress: 127.0.0.1:9997
+# apiAddress: 127.0.0.1:9997
+apiAddress: 0.0.0.0:9997
 
-###############################################
-# Path defaults
-###############################################
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                 🔐 AUTHENTICATION
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Off by default. With everything below commented out, MediaMTX keeps its
+# built-in anonymous policy: anyone who can reach the Pi may publish, read and
+# play back, and the API answers on localhost only. That is the lab default.
+#
+# To turn authentication ON:
+#   1. ./mediamtx-users.sh          writes ./config/users.env (argon2, mode 600)
+#   2. uncomment the two live lines below
+#   3. docker compose up -d
+#
+# `authInternalUsers: []` is load-bearing, not decoration. MediaMTX MERGES the
+# MTX_AUTHINTERNALUSERS_* variables into the existing user list field by field
+# rather than replacing it, so a permission you never granted can survive from
+# the built-in entry at the same index. Tested 2026-08-13: with this line left
+# commented, a user defined as publish+read came back from the API holding
+# publish+read+playback, because built-in entry 0 carries three permissions and
+# only the first two were overwritten. An empty list makes users.env the whole
+# story.
+#
+# Fail-closed: uncommenting these with no users.env in place denies everything,
+# including the local API — verified, the server starts and answers 401. That
+# is deliberate. A stream that stopped working is a louder failure than one
+# that stayed open.
+#
+# authMethod: internal
+# authInternalUsers: []
+#
+# Cost note: argon2 verification runs per request, and HLS asks often. Keep the
+# argon2 CLI defaults (m=4096, t=3, p=1); a Pi feels anything heavier first.
+#
+# ---------------------------------------------------------------------------
+# Native YAML form, if you would rather keep users here than in users.env.
+# Use one or the other, never both — the environment variables win, and the
+# disagreement is invisible until someone cannot log in.
+#
+# authMethod: internal
+# authInternalUsers:
+#   - user: instructor                     # publishes the camera
+#     pass: argon2:$argon2id$v=19$m=4096,t=3,p=1$c2FsdEl0V2l0aFNhbHQ$hash...
+#     ips: []                              # [] = any source address
+#     permissions:
+#       - action: publish
+#         path:                            # empty = every path
+#       - action: read
+#         path:
+#   - user: student                        # views only
+#     pass: argon2:$argon2id$v=19$m=4096,t=3,p=1$YW5vdGhlcnNhbHQ$hash...
+#     ips: ["192.168.1.0/24"]
+#     permissions:
+#       - action: read
+#         path: cam                        # this one path only
+#       - action: playback
+#         path: cam
+#   - user: any                            # keep the API reachable locally
+#     pass:
+#     ips: ["127.0.0.1", "::1"]
+#     permissions:
+#       - action: api
+#       - action: metrics
+#       - action: pprof
+#
+# Permission actions: publish, read, playback, api, metrics, pprof.
+# Hash a password with:  echo -n 'mypass' | argon2 <salt-8-chars-min> -id -l 32 -e
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                  📁 PATH DEFAULTS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 pathDefaults:
   source: publisher
   sourceOnDemand: false
   overridePublisher: true
 
   # Continuous recording is OFF by default in the Pi-side stack —
-  # recording lives on the Frigate host (Lab 02).  Flip this to
-  # `true` if you want a local copy on the Pi as well.
+  # For this config, recording is assumed to live on Frigate on a
+  # remote host. Flip this to `true` if you want a local copy on the Pi as well.
+  # If you turn this on, pay attention to your SD card storage.
+
   record: false
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordSegmentDuration: 1h
-  recordDeleteAfter: 1d
+  recordDeleteAfter: 3d
 
-###############################################
-# Camera paths
-#
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                   📷 CAMERA PATHS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 # Pick the entry that matches your camera and edit it.
 # Each path becomes a stream at:
-#   rtsp://<pi-ip>:8554/<name>
-#   http://<pi-ip>:8889/<name>     (WebRTC)
-#   http://<pi-ip>:8888/<name>     (HLS)
-#
-# Tunables for low-bandwidth links live in Lab 03.
-###############################################
+#   rtsp://<pi-ip>:8554/<name>     RTSP - View with VLC or similar
+#   http://<pi-ip>:8889/<name>     (WebRTC) - View with web browser
+#   http://<pi-ip>:8888/<name>     (HLS) - View with web browser
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                    🎥 CSI CAMERAS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 paths:
-
-  # ── CSI camera owned by MediaMTX (Pi Camera Module 3, IMX219, etc.) ──
-  # Works for any libcamera-supported sensor.  The container needs
+  # Works for any libcamera-supported sensor. Container needs
   # privileged + /run/udev + /dev/shm tmpfs — already set in compose.yaml.
-  # cam:
-  #  source: rpiCamera
-  #  rpiCameraCamID: 0
-  #  rpiCameraWidth: 1280
-  #  rpiCameraHeight: 720
-  #  rpiCameraFPS: 30
-  #  rpiCameraBitrate: 2500000
-  #  rpiCameraIDRPeriod: 60
-  #  rpiCameraCodec: auto
-  #  rpiCameraVFlip: false
-  #  rpiCameraHFlip: false
+  # Name below is how you reference camera (Ex: http://dojocam.local:8889/cam)
+  # If you have more than one camera, give each a unique name (Ex: cam1, cam2)
+  # get index (rpiCameraCamID) from `rpicam-hello --list-cameras`
+  #
+  # Defaults below are tuned for LIVE VIEWING — a browser on the classroom
+  # projector. If this Pi feeds a Frigate NVR, see "FEEDING FRIGATE" below;
+  # two of these numbers should change and one of them matters a lot on a Pi 5.
+  cam:
+    source: rpiCamera
+    rpiCameraCamID: 0
 
-  # ── USB camera owned by MediaMTX (Logitech 1080p, any UVC webcam) ──
+    # 1280x720 is already the right size for an NVR. Frigate detects on a
+    # 320x320 model, so anything past 720p is decoded and thrown away.
+    rpiCameraWidth: 1280
+    rpiCameraHeight: 720
+
+    # 30 for smooth live viewing. See "FEEDING FRIGATE" — 15 is the better
+    # number when this stream's real consumer is an NVR.
+    rpiCameraFPS: 30
+
+    rpiCameraBitrate: 2500000
+
+    # Keyframe every N frames: 60 @ 30fps = one every 2 seconds. A decoder
+    # cannot start until it sees one, so this is also the worst-case delay
+    # before a new viewer gets a picture.
+    rpiCameraIDRPeriod: 60
+
+    # `auto` = use the VideoCore hardware encoder, fall back to libx264.
+    #
+    #   Pi 4 and earlier .... hardware. Nearly free.
+    #   Pi 5 ................ ALWAYS the software fallback. BCM2712 has no
+    #                         hardware video encoder at all — it kept an HEVC
+    #                         decoder and dropped everything else.
+    #
+    # So `auto` is correct on both, but on a Pi 5 it is quietly spending CPU
+    # that a reader would assume was free. That is the reason the frame-rate
+    # and substream advice below is different for a Pi 5.
+    rpiCameraCodec: auto
+
+    rpiCameraVFlip: false
+    rpiCameraHFlip: false
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                 🎥 FEEDING FRIGATE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  # When a Frigate NVR (~/projects/docker-containers/frigate/) is pulling this
+  # path, change two numbers on the `cam` path above:
+  #
+  #   rpiCameraFPS: 15         Frigate's own recommendation for a record
+  #                            stream, and it detects at 5fps regardless. On a
+  #                            Pi 5 this roughly halves encode CPU, because
+  #                            every frame is encoded in software. It also
+  #                            halves what crosses a WireGuard link if this
+  #                            camera is remote.
+  #
+  #   rpiCameraIDRPeriod: 15   One keyframe per second at 15fps. Frigate cuts
+  #                            recording segments on keyframes and cannot start
+  #                            decoding without one, so a shorter period means
+  #                            tighter clip boundaries and a faster live view.
+  #                            Costs some bitrate. Use 30 (two seconds) if the
+  #                            link is tight and clip precision does not matter.
+  #
+  # Nothing else needs to change. `record: false` in pathDefaults is correct —
+  # Frigate owns recording. `rtspTransports: [tcp]` matches what Frigate's
+  # preset-rtsp-generic asks for. `sourceOnDemand: false` is what keeps the
+  # camera running when nothing is watching, so Frigate never waits for a
+  # stream to spin up and never loses the first seconds of an event.
+  #
+  # Give Frigate its own read-only user rather than running open:
+  #   ./mediamtx-users.sh          then set FRIGATE_RTSP_USER / _PASSWORD
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                     🪟 DETECTION SUBSTREAM (RARE)
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  # A second, small path for Frigate to run DETECTION on, leaving the main
+  # path for recording. Frigate then decodes 640x360 instead of 1280x720.
+  #
+  # DO NOT USE THIS ON A Pi 5. It re-encodes: a software decode of `cam` plus
+  # a second software encode, on a board with no hardware encoder, to save
+  # work on a different machine. At one or two cameras per Pi that trade is
+  # backwards. Publish `cam` at 720p and let Frigate detect on it directly.
+  #
+  # Worth it on:
+  #   - a Pi 4, where both halves of the re-encode are hardware (v4l2m2m)
+  #   - a LattePanda or any x86 camera host
+  #   - any camera reached over a metered or narrow link, where shrinking the
+  #     continuously-pulled detect stream buys back real bandwidth
+  #
+  # Uncomment on one of those, then add the second input to that camera in
+  # Frigate's config.yml.
+  #cam-sub:
+  #  runOnDemand: >
+  #    ffmpeg -i rtsp://localhost:8554/cam
+  #    -vf scale=640:360 -r 5
+  #    -c:v libx264 -preset ultrafast -tune zerolatency
+  #    -b:v 400k -g 5 -an
+  #    -f rtsp rtsp://localhost:8554/$MTX_PATH
+  #  runOnDemandRestart: yes
+  #  runOnDemandStartTimeout: 10s
+  #  runOnDemandCloseAfter: 10s
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                    🔌 USB CAMERAS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
   # MediaMTX runs ffmpeg on demand to pull from /dev/video0 and
   # publish back into the path.  Adjust the device node and encode
-  # settings for your camera.  Uncomment to enable.
-  usb:
-    runOnDemand: >
-      ffmpeg -f v4l2 -framerate 30 -video_size 1280x720
-      -i /dev/video0
-      -c:v libx264 -preset ultrafast -tune zerolatency
-      -b:v 2500k -g 60 -f rtsp rtsp://localhost:8554/$MTX_PATH
-    runOnDemandRestart: yes
-    runOnDemandStartTimeout: 10s
-    runOnDemandCloseAfter: 10s
+  # settings for your camera.  Uncomment ONE of the two variants below.
+  # Name below is how you reference camera (Ex: http://dojocam.local:8889/usb)
+  # If you have more than one camera, give each a unique name (Ex: usb1, usb2)
+  #
+  # FIRST, find out what your camera can actually emit. This decides which
+  # variant you want, and it is not a detail — it is the difference between
+  # no encoding at all and a full software encode:
+  #
+  #   v4l2-ctl --device=/dev/video0 --list-formats-ext
+  #
+  # Look for H264 (best), then MJPG (good), then YUYV (worst). Most Logitech
+  # business webcams — C920, C922, C925e — do H.264 on the camera itself.
+  #
+  # `-input_format` is what selects among them. WITHOUT it ffmpeg takes the
+  # driver's default, which is almost always raw YUYV: uncompressed frames
+  # that saturate USB 2.0 bandwidth (720p often caps near 10fps) and then
+  # still have to be encoded from scratch. Omitting that one flag is the
+  # single most expensive mistake available on this page.
 
+  # ── Variant A · camera encodes H.264 itself — NO ENCODING ON THE PI ──────
+  # `-c:v copy` passes the camera's own H.264 through untouched. Costs
+  # essentially nothing, which makes it the only sensible choice on a Pi 5.
+  # Set the camera's own keyframe interval if it exposes one; ffmpeg cannot
+  # change it here without re-encoding, which would defeat the point.
+  #usb:
+  #  runOnDemand: >
+  #    ffmpeg -f v4l2 -input_format h264 -framerate 30 -video_size 1280x720
+  #    -i /dev/video0
+  #    -c:v copy -an
+  #    -f rtsp rtsp://localhost:8554/$MTX_PATH
+  #  runOnDemandRestart: yes
+  #  runOnDemandStartTimeout: 10s
+  #  runOnDemandCloseAfter: 10s
+
+  # ── Variant B · camera emits MJPEG — decode, then encode ────────────────
+  # For cameras with no onboard H.264. The MJPEG decode is cheap; the H.264
+  # encode is software on a Pi 5 and hardware on a Pi 4. Drop to 15fps when
+  # this feeds Frigate — see FEEDING FRIGATE above.
+  #
+  # A and B define the SAME path name. Uncommenting both leaves two `usb:`
+  # keys in one mapping; one of them silently wins. Pick one.
+  #usb:
+  #  runOnDemand: >
+  #    ffmpeg -f v4l2 -input_format mjpeg -framerate 30 -video_size 1280x720
+  #    -i /dev/video0
+  #    -c:v libx264 -preset ultrafast -tune zerolatency
+  #    -b:v 2500k -g 60 -an
+  #    -f rtsp rtsp://localhost:8554/$MTX_PATH
+  #  runOnDemandRestart: yes
+  #  runOnDemandStartTimeout: 10s
+  #  runOnDemandCloseAfter: 10s
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                      🧭 CATCH-ALL
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
   # Catch-all for any other path published to this server
   # (e.g., an ad-hoc `rpicam-vid | ffmpeg` push during testing).
-  all_others:
+  #all_others:
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼

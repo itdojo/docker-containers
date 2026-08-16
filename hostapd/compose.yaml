@@ -1,24 +1,36 @@
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-# 🎨 EXCALIDRAW — SELF-HOSTED WHITEBOARD 🎨
+# 📶 HOSTAPD ACCESS POINT — COMPOSE STACK 📶
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-# Builds Excalidraw from upstream source and serves the static bundle with
-# nginx. No backend, no database, no collaboration server — a single container
-# answering on port 3333.
+# Turns a USB WiFi adapter into an access point with NAT out to the uplink.
+# One container runs hostapd (the radio) and dnsmasq (DHCP + DNS) under
+# supervisord.
+#
+# Host networking and privileged mode are not optional here: hostapd drives a
+# real radio, which lives in the host's network namespace.
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 #                                                                                        🐳 SERVICE
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 services:
-  excalidraw:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: excalidraw
-    ports:
-      - "3333:80"                # host:container — change the host side to move it
+  wifi_ap:
+    build: .
+    container_name: wifi_ap
+    privileged: true
+    network_mode: "host"
+
+    # SSID, channel, interfaces, DHCP range and upstream DNS all come from
+    # .env, and entrypoint.sh substitutes them into the config templates.
+    env_file:
+      - .env
+
+    volumes:
+      - ./config/:/config_templates      # templates, not live config — see entrypoint.sh
+      - /dev/bus/usb:/dev/bus/usb
+    devices:
+      - "/dev/bus/usb:/dev/bus/usb"      # the USB WiFi adapter
+    cap_add:
+      - NET_ADMIN
     restart: unless-stopped
-    environment:
-      - NODE_ENV=production
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼

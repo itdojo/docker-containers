@@ -1,0 +1,6 @@
+# Host-specific and secret-bearing. Every one of these has a committed
+# .example alongside it.
+.env
+
+# Recordings never live in the repo; FRIGATE_MEDIA points off-tree.
+media/

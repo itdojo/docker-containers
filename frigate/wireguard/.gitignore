@@ -1,0 +1,5 @@
+# Holds a private key. Never committed.
+*.conf
+
+# The template is.
+!*.conf.example

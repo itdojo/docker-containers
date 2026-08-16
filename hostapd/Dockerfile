@@ -1,58 +1,48 @@
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-# 📡 KISMET + GPSD — WIRELESS SURVEY STACK 📡
+# 📶 HOSTAPD ACCESS POINT — IMAGE BUILD 📶
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-# Two containers on host networking: kismet captures, gpsd feeds it position.
-# Host networking is what lets kismet reach gpsd on 127.0.0.1:2947 without a
-# shared bridge — see kismet_config/kismet_site.conf.
-#
-# GPS_DEVICE comes from the environment (or a .env alongside this file) and is
-# the serial node the GPS puck enumerates as, e.g. /dev/ttyUSB0.
-
-name: kismet-gpsd
-
-services:
+# Single stage. Ships hostapd and dnsmasq under supervisord, plus the iproute2
+# and iptables tooling entrypoint.sh needs to address the radio and set up NAT.
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                               📶 KISMET — CAPTURE
+#                                                                          🐧 BASE IMAGE & PACKAGES
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-  kismet:
-    build:
-      context: .
-      dockerfile: Dockerfile.kismet
-    image: kismet-repo:local
-    container_name: kismet
-    network_mode: host
-    restart: unless-stopped
-    devices:
-      - "/dev/bus/usb:/dev/bus/usb"      # the WiFi capture adapters
-    volumes:
-      # Site config overrides /etc/kismet/kismet.conf; logs land on the host.
-      - ./kismet_config/kismet_site.conf:/etc/kismet/kismet_site.conf
-      - ./kismet_logs:/kismet_logs
-    environment:
-      - KISMET_CONF_DIR=/etc/kismet
-      - KISMET_LOG_DIR=/kismet_logs
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    depends_on:
-      - gpsd
+FROM debian:latest
+
+# gettext-base supplies envsubst, which expands the config templates at start.
+RUN apt-get update && apt-get install -y \
+    hostapd \
+    dnsmasq \
+    iproute2 \
+    iptables \
+    usbutils \
+    supervisor \
+    procps \
+    gettext-base \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                                🧭 GPSD — POSITION
+#                                                                               📁 CONFIG TEMPLATES
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-  gpsd:
-    build:
-      context: .
-      dockerfile: Dockerfile.gpsd
-    image: alpine-gpsd:local
-    container_name: gpsd
-    network_mode: host
-    restart: unless-stopped
-    devices:
-      - "${GPS_DEVICE}:${GPS_DEVICE}"
-    environment:
-      - GPS_DEVICE=${GPS_DEVICE}
+WORKDIR /
+
+RUN mkdir /config_templates
+
+# Templates only. entrypoint.sh renders these into /etc at container start;
+# the compose bind mount replaces this copy at runtime.
+COPY config/ /config_templates
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        🚀 STARTUP
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+COPY entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+# runs after ENTRYPOINT
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼

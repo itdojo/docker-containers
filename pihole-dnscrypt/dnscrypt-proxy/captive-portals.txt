@@ -1,0 +1,53 @@
+###########################################
+#  Captive portals                        #
+###########################################
+
+## Some operating systems send queries to these names after a network change,
+## in order to check if connectivity beyond the router is possible without
+## going through a captive portal.
+##
+## This is a list of hard-coded IP addresses that will be returned when queries
+## for these names are received, even before the operating system reports an interface
+## as usable for reaching the Internet.
+##
+## Note that IPv6 addresses don't need to be specified within brackets,
+## as there are no port numbers.
+
+# Colin - Validation Entries
+fafo.fakecheck.com              44.44.44.44
+# dig fafo.fakecheck.com should return this
+
+ipv4only.arpa                   192.0.0.170, 192.0.0.171
+
+# Microsoft Windows
+dns.msftncsi.com                131.107.255.255, fd3e:4f5a:5b81::1
+www.msftconnecttest.com         13.107.4.52, 23.200.3.18, 23.200.3.30
+ipv6.msftconnecttest.com        2a01:111:2003::52, 2600:141b:1c00:8::1728:b311, 2600:141b:1c00:8::1728:b336
+www.msftncsi.com                23.200.3.18, 23.200.3.30, 2.16.106.89, 2.16.106.91, 23.0.175.137, 23.0.175.146, 23.192.47.155, 23.192.47.203, 23.199.63.160, 23.199.63.184, 23.199.63.208, 23.204.146.160, 23.204.146.163, 23.46.238.243, 23.46.239.24, 23.48.39.16, 23.48.39.48, 23.55.38.139, 23.55.38.146, 23.59.190.185, 23.59.190.195
+
+# macOS / iOS
+captive.apple.com               17.253.109.201, 17.253.113.202, 17.253.21.204, 17.253.21.205, 2620:149:a0e:f000::5, 2620:149:a0e:f000::1
+captive.apple.com.edgesuite.net 23.40.179.149, 23.40.179.142
+init-p01md.apple.com            23.44.201.186, 23.44.201.187, 2600:141b:1c00:31::1739:5a48, 2600:141b:1c00:31::1739:5a51
+
+# Android / Chrome OS
+connectivitycheck.gstatic.com   142.251.32.99, 64.233.162.94, 64.233.164.94, 64.233.165.94, 64.233.177.94, 64.233.185.94, 74.125.132.94, 74.125.136.94, 74.125.20.94, 74.125.21.94, 74.125.28.94, 2607:f8b0:4006:81d::2003
+connectivitycheck.android.com   142.250.65.238, 64.233.162.100, 64.233.162.101, 64.233.162.102, 64.233.162.113, 64.233.162.138, 64.233.162.139, 2607:f8b0:4006:817::200e
+clients3.google.com             142.250.80.110, 2607:f8b0:4006:80f::200e
+clients2.google.com             142.250.65.238, 2607:f8b0:4006:80f::200e
+
+# Ubuntu
+connectivity-check.ubuntu.com   185.125.190.18, 91.189.91.49, 185.125.190.98, 185.125.190.49, 91.189.91.98, 185.125.190.96, 185.125.190.97, 185.125.190.48, 185.125.190.17, 91.189.91.97, 91.189.91.48, 91.189.91.96, 2620:2d:4000:1::98, 2620:2d:4000:1::96, 2001:67c:1562::24, 2620:2d:4002:1::198, 2620:2d:4000:1::22, 2620:2d:4002:1::196, 2620:2d:4000:1::23, 2620:2d:4002:1::197, 2620:2d:4000:1::97, 2001:67c:1562::23, 2620:2d:4000:1::2b, 2620:2d:4000:1::2a
+
+# Amazon Web Services (AWS Health Checks):
+checkip.amazonaws.com           3.208.127.253, 52.202.242.246, 52.22.184.63
+
+# Mozilla Firefox:
+detectportal.firefox.com        34.107.221.82, 2600:1901:0:38d7::
+
+# NTP Servers (Used for Time Synchronization)
+time.google.com                 216.239.35.8, 216.239.35.4, 216.239.35.0, 216.239.35.12, 2001:4860:4806::, 2001:4860:4806:4::, 2001:4860:4806:8::, 2001:4860:4806:c::
+time.windows.com                168.61.215.74
+time.apple.com                  17.253.20.253, 17.253.2.251, 17.253.20.125, 2620:149:a23:4000::1f2, 2620:149:a33:3000::1e2, 2620:149:a33:4000::1e2
+time.cloudflare.com             162.159.200.1, 162.159.200.123, 2606:4700:f1::1, 2606:4700:f1::123
+time.facebook.com               129.134.25.123

@@ -1,24 +1,28 @@
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-# 🎨 EXCALIDRAW — SELF-HOSTED WHITEBOARD 🎨
+# 🪸 DETECTOR OVERLAY — CORAL USB EDGE TPU 🪸
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-# Builds Excalidraw from upstream source and serves the static bundle with
-# nginx. No backend, no database, no collaboration server — a single container
-# answering on port 3333.
+# The portable one. A Coral USB accelerator behaves identically on a Pi 4, a
+# Pi 5, a LattePanda and a Gateworks Venice board, which makes this the profile
+# to reach for when the same folder has to run on all of them.
+#
+#   COMPOSE_FILE=compose.yaml:compose.ports.yaml:compose.coral-usb.yaml
+#
+# Pair with the `coral` detector block in config/config.yml.
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                                        🐳 SERVICE
+#                                                                                        🐳 FRIGATE
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 services:
-  excalidraw:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: excalidraw
-    ports:
-      - "3333:80"                # host:container — change the host side to move it
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=production
+  frigate:
+    devices:
+      # The whole USB bus, not one device node. The Coral enumerates as
+      # 1a6e:089a (Global Unichip) on a cold boot, uploads its firmware, and
+      # re-enumerates as 18d1:9302 (Google) with a NEW bus path. A mount of the
+      # single node it had at startup disappears underneath the container.
+      - /dev/bus/usb:/dev/bus/usb
 
-# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+      # Raspberry Pi 4 ONLY — the V4L2 M2M H.264 decoder, so ffmpeg can use
+      # preset-rpi-64-h264 instead of decoding on the CPU. Uncomment on a Pi 4.
+      # Do NOT uncomment on a Pi 5: it has no hardware H.264 decoder at all.
+      #- /dev/video11:/dev/video11

@@ -1,0 +1,11 @@
+.env
+
+# Container-written runtime state, not config of record. Both are bind-mount
+# targets in compose.yaml, and etc-pihole/ fills with live secrets: pihole.toml
+# holds the generated admin password hash (the input is WEBPASSWORD in .env) and
+# tls.pem is a private key. example.env is the tracked template for the stack.
+etc-pihole/
+etc-dnsmasq.d/
+
+# dnscrypt-proxy query logs. The .toml beside them is tracked.
+dnscrypt-proxy/logs/

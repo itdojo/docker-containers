@@ -1,0 +1,7 @@
+# Generated credentials. Hashed, but still a credential file — and it carries
+# the shape of the deployment (usernames, path scopes, allowed subnets).
+users.env
+users.env.pre-mediamtx-users.*.bak
+
+# users.env.example is the committed reference and stays tracked.
+!users.env.example

@@ -1,0 +1,13 @@
+# The live config. Holds camera addresses and gets rewritten by Frigate's UI
+# without preserving comments — config.yml.example is the readable copy of
+# record and the one that is committed.
+config.yml
+config.yaml
+
+# Runtime state Frigate writes into /config.
+*.db
+*.db-shm
+*.db-wal
+.jwt_secret
+model_cache/
+exports/

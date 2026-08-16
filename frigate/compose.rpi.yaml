@@ -1,0 +1,33 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🍓 PLATFORM OVERLAY — RASPBERRY PI 4 🍓
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Raspberry Pi 4 with no accelerator: hardware H.264 decoding, CPU detection.
+#
+#   COMPOSE_FILE=compose.yaml:compose.ports.yaml:compose.rpi.yaml
+#
+# Pair with the `cpu` detector block in config/config.yml, and set
+# `hwaccel_args: preset-rpi-64-h264` under ffmpeg.
+#
+# Be honest about what this is. CPU detection on a Pi 4 is roughly two to three
+# cameras at 5 fps detect, and it will sit near 100% on all four cores. It is a
+# working baseline and a teaching configuration, not a production NVR. Adding a
+# Coral USB — compose.coral-usb.yaml, with /dev/video11 uncommented there —
+# changes that more than any other single thing you can do.
+#
+# For a Pi 5 use compose.hailo.yaml or compose.coral-usb.yaml. A Pi 5 has NO
+# hardware H.264 decoder, so this overlay's device mounts do not exist there.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        🐳 FRIGATE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+services:
+  frigate:
+    devices:
+      # V4L2 M2M stateful decoder. This is what preset-rpi-64-h264 drives.
+      - /dev/video11:/dev/video11
+
+      # The ISP and the hardware encoder. Only needed if you re-encode on the
+      # Pi, which this stack does not do by default.
+      #- /dev/video10:/dev/video10
+      #- /dev/video12:/dev/video12

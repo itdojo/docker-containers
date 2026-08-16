@@ -1,0 +1,107 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🧱 NETPLAN — BRIDGE0, POSITION=INT 🧱
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# etc/netplan/10-ntopng-bridge-int.yaml
+#
+# POSITION=int — the sensor sits INSIDE the firewall, inline on a LAN link.
+#
+# The only difference from the ext file is the bridge0 stanza: here it takes a
+# DHCP lease, so the host is reachable on the segment it is monitoring and
+# needs no separate management NIC. Everything else — addressless member
+# ports, offloads off, STP off, forward-delay 0 — is identical, because the
+# capture path does not care which side of the firewall it is on.
+#
+# host-setup.sh installs this as /etc/netplan/10-ntopng-bridge.yaml when
+# POSITION=int. Edit the two physical port names to match your host, and keep
+# them in step with BRIDGE_PORTS in .env.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                       🔀 THE TRADE YOU ARE MAKING
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# An addressed bridge is not a transparent one. bridge0 now has an IP and a
+# MAC on the monitored segment: it answers ARP, it appears in the neighbour
+# table, and it shows up in its own ntopng host list. That is the price of not
+# running a second cable to a management NIC, and inside the firewall it is
+# usually the right price. Outside it is not — hence two files.
+#
+# CABLING: STP is off and forward-delay is 0, so this bridge forwards blindly
+# and will not break a loop. It must be cut INTO a link — switch on one port,
+# the downstream device or segment on the other. Patch both ports into the
+# same switch and same VLAN and you have built a broadcast storm. STP is off
+# on purpose: a sensor that participates in the LAN's spanning tree can have
+# one of its ports blocked, which severs the very link it is inline on.
+#
+# DHCP RESERVATION: the lease is requested by bridge0, whose MAC is inherited
+# from the lowest-numbered member port — NOT from a MAC you will find on the
+# management NIC, because there isn't one. Read the address you must reserve
+# against with:
+#
+#     ip -br link show bridge0
+#
+# dhcp-identifier: mac below is load-bearing for that reservation. By default
+# systemd-networkd sends an RFC 4361 client identifier derived from a DUID,
+# and a DHCP server that matches reservations on the hardware address will not
+# recognise it — the classic "my reservation is ignored on Ubuntu" symptom.
+# This key makes networkd send the MAC itself as the client identifier.
+#
+# optional: true is kept even though this is now the host's only routed
+# interface. The alternative stalls boot in systemd-networkd-wait-online for
+# two minutes whenever the DHCP server is slow or absent. The cost is that the
+# stack can start before the lease lands, which is exactly why WEB_BIND
+# defaults to a wildcard for this position — see .env.example.
+
+network:
+  version: 2
+  renderer: networkd
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                       🔌 MEMBER PORTS — ADDRESSLESS, OFFLOADS OFF
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  ethernets:
+    enp1s0:
+      dhcp4: no
+      dhcp6: no
+      accept-ra: no
+      link-local: []
+      optional: true
+      generic-receive-offload: false
+      large-receive-offload: false
+      generic-segmentation-offload: false
+      tcp-segmentation-offload: false
+      tcp6-segmentation-offload: false
+
+    enp2s0:
+      dhcp4: no
+      dhcp6: no
+      accept-ra: no
+      link-local: []
+      optional: true
+      generic-receive-offload: false
+      large-receive-offload: false
+      generic-segmentation-offload: false
+      tcp-segmentation-offload: false
+      tcp6-segmentation-offload: false
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                               🧱 THE BRIDGE — DHCP LEASE ON THE MONITORED SEGMENT
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  bridges:
+    bridge0:
+      dhcp4: true
+      dhcp6: no
+      accept-ra: no
+      link-local: []
+      optional: true
+      dhcp-identifier: mac
+      dhcp4-overrides:
+        use-dns: true
+        use-routes: true
+      interfaces:
+        - enp1s0
+        - enp2s0
+      parameters:
+        stp: false
+        forward-delay: 0
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼

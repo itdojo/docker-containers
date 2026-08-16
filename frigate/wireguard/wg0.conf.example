@@ -1,0 +1,96 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🔒 WIREGUARD — CLIENT CONFIG (EXAMPLE) 🔒
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Only used with COMPOSE_FILE=...:compose.wireguard.yaml.
+#
+# Copy to wg0.conf and edit. The sidecar runs every *.conf it finds in this
+# folder; wg0.conf.example is ignored because it does not end in .conf.
+#
+#   cp wireguard/wg0.conf.example wireguard/wg0.conf && $EDITOR wireguard/wg0.conf
+#   chmod 600 wireguard/wg0.conf
+#
+# This is a SPLIT TUNNEL, written for the case it was built for: Frigate
+# reaching mediamtx boxes that live on the far side of the tunnel. Everything
+# else — the UI, the LAN, package updates — keeps using the host's normal
+# route.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                      🧍 THIS PEER
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+[Interface]
+# Private key for the Frigate container's peer. Generate with:
+#   wg genkey | tee frigate.key | wg pubkey > frigate.pub
+# Then give frigate.pub to whoever runs the far end.
+#
+# This file holds a private key. It is gitignored, and it should be 0600.
+PrivateKey = REPLACE_WITH_YOUR_PRIVATE_KEY
+
+# The address this peer holds inside the tunnel, as assigned by the far end.
+Address = 10.13.13.20/32
+
+# Deliberately absent: DNS.
+#
+# Setting DNS here rewrites resolv.conf for the whole namespace, which means
+# Frigate stops resolving `mosquitto` on the Docker network and the stack
+# breaks in a way that looks nothing like a DNS problem. Address the far-end
+# cameras by IP in config.yml and leave this alone.
+#DNS = 10.13.13.1
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                    🌍 THE FAR END
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+[Peer]
+PublicKey = REPLACE_WITH_THE_SERVER_PUBLIC_KEY
+
+# Where to reach the far end. A hostname works and is re-resolved on restart,
+# which matters if the far end is on a dynamic address.
+Endpoint = vpn.example.com:51820
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                     🚦 ALLOWEDIPS — READ THIS ONE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# AllowedIPs is a ROUTING TABLE, not an access list. Every prefix here is a
+# route installed into the container's namespace.
+#
+# List the REMOTE camera subnets and NOTHING else. Frigate also ingests from
+# cameras on the local LAN, and those reach it by NOT being listed here —
+# anything absent from this line keeps the namespace's ordinary default route
+# out through the Docker bridge.
+AllowedIPs = 10.13.13.0/24, 192.0.2.0/24
+
+# ── The overlap trap ──
+#
+# A prefix here that also covers something local silently captures it. Two ways
+# that happens, both common:
+#
+#   1. The far-end LAN and your local LAN use the same private range. Both
+#      192.168.1.0/24 is the classic. Every local camera then routes into the
+#      tunnel and stops answering, and the tunnel is the last thing you suspect
+#      because the remote cameras are working fine.
+#   2. A prefix overlaps Docker's own bridge pool (172.16.0.0/12 by default).
+#      Frigate then loses the mosquitto service and reports a broker failure.
+#
+# frigate-setup.sh compares this line against the host's real interface
+# subnets and against Docker's address pools, and refuses to start on an
+# overlap. If it fires, the fix is on the far end: renumber that network, or
+# narrow this prefix to the specific camera addresses.
+#
+# Do NOT use 0.0.0.0/0 here without knowing what it does. It installs a default
+# route through the tunnel inside the namespace, and then:
+#
+#   - Cameras on the LOCAL LAN become unreachable, because their traffic is
+#     now routed into the tunnel. With mixed ingest that is most of your
+#     cameras, not an edge case.
+#   - `mosquitto` becomes unreachable, because the Docker network is routed
+#     into the tunnel too. Frigate starts and reports no MQTT connection.
+#   - Replies to a LAN browser on :8971 leave through the tunnel instead of
+#     going back the way they came, and the UI hangs after connecting.
+#
+# All three are fixable with PostUp rules that carve the Docker subnet and the
+# LAN back out. None of them is fixable by guessing. If you need a full tunnel,
+# start from a split one that works and add prefixes.
+
+# Keeps the tunnel alive through NAT on the far end. 25 is the conventional
+# value; anything above about 30 lets typical NAT state expire.
+PersistentKeepalive = 25

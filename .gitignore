@@ -2,6 +2,12 @@
 .env
 *.log
 
+# Large media never enters git history. ntopng/docs/ carries two explainer .mp4s
+# (36 MB combined) that would outweigh every stack in the repo a hundred times over
+# and could not be removed later without a history rewrite. They stay on disk and
+# are distributed out of band; the .html explainers beside them are tracked.
+*.mp4
+
 # One stack re-includes its .env on purpose: https-right-quick/.env holds demo
 # credentials that are part of the exercise, published since 2026-03. The exception
 # lives in https-right-quick/.gitignore, not here — that file has its own `.env` rule,

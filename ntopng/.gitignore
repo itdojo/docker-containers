@@ -1,0 +1,12 @@
+# Live config: holds the management address and host-specific sizing.
+.env
+
+# ntopng Enterprise licence, if one is ever added. Never commit it.
+ntopng.license
+
+# Local state, if anyone ever bind-mounts instead of using named volumes.
+ntopng-data/
+ntopng-log/
+redis-data/
+
+.DS_Store

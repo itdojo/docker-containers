@@ -1,0 +1,32 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# ⚡ DETECTOR OVERLAY — HAILO-8L / HAILO-8 ⚡
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Raspberry Pi 5 with the AI Kit or AI HAT+ (the M.2 Hailo module on the PCIe
+# connector). The fastest option on a Pi by a wide margin.
+#
+#   COMPOSE_FILE=compose.yaml:compose.ports.yaml:compose.hailo.yaml
+#
+# Pair with the `hailo` detector block in config/config.yml.
+#
+# NOT the same thing as the Raspberry Pi AI Camera. That camera is a Sony
+# IMX500 with inference on the sensor; Frigate cannot use it as a detector.
+# Frigate sees an AI Camera as an ordinary camera and detects on the Hailo
+# module, the Coral, or the CPU. Only the M.2 module works here.
+#
+# Requires the host driver: /dev/hailo0 must exist before the stack starts.
+#   sudo apt install hailo-all && sudo reboot
+#   ls -l /dev/hailo0
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        🐳 FRIGATE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+services:
+  frigate:
+    devices:
+      - /dev/hailo0:/dev/hailo0
+
+      # Pi 5 has no hardware H.264 decoder — the block was removed from the
+      # SoC. Decoding is software here no matter what, which is why the
+      # substream trick in config.yml matters more on a Pi 5 than anywhere
+      # else. There is no /dev/video11 to mount.

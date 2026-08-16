@@ -1,0 +1,83 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🧱 PI-HOLE + DNSCRYPT-PROXY — ENCRYPTED FILTERING RESOLVER 🧱
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Two containers on host networking. Pi-hole answers clients on :53 and does
+# the blocking; dnscrypt-proxy sits behind it on :5053 and carries every
+# upstream query over DNSCrypt or DoH.
+#
+# The chain is what makes this worth running: Pi-hole alone still sends
+# cleartext DNS to its upstream. FTLCONF_dns_upstreams below points it at the
+# local dnscrypt-proxy instead, so nothing leaves this host unencrypted.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                     🛑 PI-HOLE — FILTERING & DHCP-FACING RESOLVER
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    # Pi-hole v6 renamed every one of these to FTLCONF_<toml-path>. The v5
+    # names (WEBPASSWORD, PIHOLE_DNS_, DNSMASQ_LISTENING, INTERFACE) are not
+    # read by the v6 entrypoint at all — it is not a warning, they are simply
+    # ignored. The stack kept working only because etc-pihole/pihole.toml still
+    # held the values migrated from v5; wipe that volume and Pi-hole would come
+    # back with no upstream, no password, and listening on eth0.
+    environment:
+      TZ: 'America/New_York'
+      FTLCONF_webserver_api_password: ${WEBPASSWORD}   # from .env — see example.env
+      FTLCONF_dns_listeningMode: 'SINGLE'
+      FTLCONF_dns_interface: 'wg0'                     # answer only on the WireGuard interface
+      FTLCONF_dns_upstreams: '127.0.0.1#5053;::1#5053' # upstream = the dnscrypt-proxy below
+    volumes:
+      - './etc-pihole:/etc/pihole'
+      - './etc-dnsmasq.d:/etc/dnsmasq.d'
+    cap_add:
+      - NET_ADMIN
+    dns:
+      - 9.9.9.9                            # container's own resolution, not client queries
+      - 1.1.1.1
+    network_mode: host
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    healthcheck:
+        test: ["CMD", "dig", "@127.0.0.1", "-p", "53", "google.com"]
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 10s
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                            🔐 DNSCRYPT-PROXY — ENCRYPTED UPSTREAM
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  dnscrypt-proxy:
+    build:
+      context: ./dnscrypt-proxy
+      dockerfile: Dockerfile.dnscrypt-proxy
+    image: dnscrypt-proxy:latest
+    container_name: dnscrypt-proxy
+    volumes:
+      - ./dnscrypt-proxy/dnscrypt-proxy.toml:/etc/dnscrypt-proxy/dnscrypt-proxy.toml
+      - ./dnscrypt-proxy/captive-portals.txt:/etc/dnscrypt-proxy/captive-portals.txt
+      - ./dnscrypt-proxy/logs:/logs
+    network_mode: host
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    healthcheck:
+      # 2m interval: the resolver list fetch on a cold start can take a while,
+      # hence the long start_period and retry count too.
+      test: ["CMD", "dig", "@127.0.0.1", "-p", "5053", "google.com"]
+      interval: 2m
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼

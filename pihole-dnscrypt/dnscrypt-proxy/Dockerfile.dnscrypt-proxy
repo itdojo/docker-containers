@@ -1,58 +1,44 @@
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-# 📡 KISMET + GPSD — WIRELESS SURVEY STACK 📡
+# 🔐 DNSCRYPT-PROXY — IMAGE BUILD 🔐
 # •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-# Two containers on host networking: kismet captures, gpsd feeds it position.
-# Host networking is what lets kismet reach gpsd on 127.0.0.1:2947 without a
-# shared bridge — see kismet_config/kismet_site.conf.
-#
-# GPS_DEVICE comes from the environment (or a .env alongside this file) and is
-# the serial node the GPS puck enumerates as, e.g. /dev/ttyUSB0.
-
-name: kismet-gpsd
-
-services:
+# Two stages: compile dnscrypt-proxy from upstream master in golang:alpine,
+# then ship the single static binary on bare alpine. Built from source rather
+# than pulled as a release so the image tracks upstream directly.
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                               📶 KISMET — CAPTURE
+#                                                                                    🔨 BUILD STAGE
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-  kismet:
-    build:
-      context: .
-      dockerfile: Dockerfile.kismet
-    image: kismet-repo:local
-    container_name: kismet
-    network_mode: host
-    restart: unless-stopped
-    devices:
-      - "/dev/bus/usb:/dev/bus/usb"      # the WiFi capture adapters
-    volumes:
-      # Site config overrides /etc/kismet/kismet.conf; logs land on the host.
-      - ./kismet_config/kismet_site.conf:/etc/kismet/kismet_site.conf
-      - ./kismet_logs:/kismet_logs
-    environment:
-      - KISMET_CONF_DIR=/etc/kismet
-      - KISMET_LOG_DIR=/kismet_logs
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    depends_on:
-      - gpsd
+FROM golang:alpine AS builder
+
+RUN apk add --no-cache git
+
+RUN git clone https://github.com/DNSCrypt/dnscrypt-proxy.git /dnscrypt-proxy
+
+WORKDIR /dnscrypt-proxy/dnscrypt-proxy
+RUN go build -o dnscrypt-proxy
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-#                                                                                🧭 GPSD — POSITION
+#                                                                                  🚀 RUNTIME STAGE
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
-  gpsd:
-    build:
-      context: .
-      dockerfile: Dockerfile.gpsd
-    image: alpine-gpsd:local
-    container_name: gpsd
-    network_mode: host
-    restart: unless-stopped
-    devices:
-      - "${GPS_DEVICE}:${GPS_DEVICE}"
-    environment:
-      - GPS_DEVICE=${GPS_DEVICE}
+FROM alpine:latest
+COPY --from=builder /dnscrypt-proxy/dnscrypt-proxy/dnscrypt-proxy /usr/local/bin/dnscrypt-proxy
+
+# Baked in as a fallback; compose bind-mounts the live copies over these.
+COPY ./dnscrypt-proxy.toml /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+COPY ./captive-portals.txt /etc/dnscrypt-proxy/captive-portals.txt
+RUN mkdir /logs
+
+# bind-tools supplies the dig the compose healthcheck runs.
+RUN apk --no-cache add ca-certificates bind-tools && \
+    rm -rf /var/cache/apk/*
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                      🌐 LISTENERS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+EXPOSE 5053/udp
+EXPOSE 5053/tcp
+
+ENTRYPOINT ["/usr/local/bin/dnscrypt-proxy", "-config", "/etc/dnscrypt-proxy/dnscrypt-proxy.toml"]
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼

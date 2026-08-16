@@ -1,0 +1,111 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🎥 FRIGATE — NVR BASE STACK 🎥
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Frigate plus its MQTT broker. This file is portable as-is: everything that
+# differs between hosts lives in .env, and everything that differs between
+# accelerators lives in a compose.<detector>.yaml overlay.
+#
+# This file publishes NO ports and defines NO detector. It is never used alone.
+# COMPOSE_FILE in .env selects one network overlay and one detector overlay:
+#
+#   COMPOSE_FILE=compose.yaml:compose.ports.yaml:compose.openvino.yaml
+#
+# Compose reads COMPOSE_FILE out of .env itself, so `docker compose up -d`
+# needs no -f flags once .env is written.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        🐳 FRIGATE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+services:
+  frigate:
+    container_name: frigate
+    # Pinned, not `stable`. An unattended tag change on an NVR is a change you
+    # discover from missing footage. See README "Upgrading".
+    #   amd64 / LattePanda ......... ghcr.io/blakeblackshear/frigate:0.17.2
+    #   Raspberry Pi (arm64) ....... ghcr.io/blakeblackshear/frigate:0.17.2
+    #   other arm64 (Gateworks) .... ghcr.io/blakeblackshear/frigate:0.17.2-standard-arm64
+    image: ${FRIGATE_IMAGE:?set FRIGATE_IMAGE in .env}
+    restart: unless-stopped
+
+    # Frigate flushes in-flight recording segments on shutdown. Cutting that
+    # short truncates the last clip of every camera.
+    stop_grace_period: 30s
+
+    depends_on:
+      - mosquitto
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                  🧠 SHARED MEMORY
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+    # Frigate decodes frames into /dev/shm. Docker's 64 MB default is not
+    # enough for even one camera and shows up as decode stalls, not as an
+    # obvious out-of-memory error.
+    #
+    #   per camera MB = (detect_width * detect_height * 1.5 * 20 + 270480) / 1048576
+    #
+    # Sum every camera, add 40 MB for birdseye, round up. The README carries a
+    # worked example.
+    shm_size: ${FRIGATE_SHM_SIZE:-256mb}
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                      🔐 ENVIRONMENT & CREDENTIALS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+    environment:
+      # Substituted into config.yml wherever {FRIGATE_RTSP_PASSWORD} appears,
+      # so camera passwords never sit in the file you edit and paste.
+      - FRIGATE_RTSP_PASSWORD=${FRIGATE_RTSP_PASSWORD:-}
+      - FRIGATE_RTSP_USER=${FRIGATE_RTSP_USER:-}
+      # Signs session cookies. Must be >= 64 chars and must survive restarts,
+      # or every user is logged out on every `docker compose up`.
+      # frigate-setup.sh generates one if .env leaves it empty.
+      - FRIGATE_JWT_SECRET=${FRIGATE_JWT_SECRET:-}
+      - TZ=${TZ:-Etc/UTC}
+      - LIBVA_DRIVER_NAME=${LIBVA_DRIVER_NAME:-}
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        💾 VOLUMES
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config:/config
+
+      # Recordings. Point FRIGATE_MEDIA at an external disk in .env — see the
+      # SD-card warning in the README. Continuous recording will destroy a
+      # Raspberry Pi SD card in a matter of months.
+      - ${FRIGATE_MEDIA:?set FRIGATE_MEDIA in .env}:/media/frigate
+
+      # Frigate buffers every in-progress recording segment here before moving
+      # it to /media/frigate. On disk this is a second write of every byte you
+      # record; as tmpfs it costs RAM instead. On an SD-card host this is the
+      # single most important line in the file.
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: ${FRIGATE_CACHE_SIZE:-1000000000}
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                      📡 MOSQUITTO
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  mosquitto:
+    container_name: frigate-mosquitto
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+
+    # Deliberately no `ports:`. Frigate reaches the broker as `mosquitto:1883`
+    # on the project's default network, so nothing needs to be published. To
+    # subscribe from another machine, uncomment the block in mosquitto.conf
+    # AND add a ports entry here — in that order, and read the note first.
+
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                  📦 NAMED VOLUMES
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+volumes:
+  mosquitto-data:

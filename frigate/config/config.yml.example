@@ -1,0 +1,397 @@
+# yaml-language-server: $schema=http://127.0.0.1:5000/api/config/schema.json
+
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🎥 FRIGATE — CONFIGURATION (EXAMPLE) 🎥
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Copy to config.yml and edit. Frigate reads /config/config.yml inside the
+# container, which is ./config/config.yml here.
+#
+#   cp config/config.yml.example config/config.yml && $EDITOR config/config.yml
+#
+# Two things to get right, in this order:
+#
+#   1. The DETECTOR block below must match the compose.<detector>.yaml overlay
+#      named in COMPOSE_FILE in .env. Exactly one is uncommented.
+#   2. The CAMERAS block at the bottom must name real mediamtx paths.
+#
+# Frigate rewrites this file when you edit settings in the UI, and it does not
+# preserve comments. Keep this example as the readable copy of record.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                           📡 MQTT
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# The event bus. Frigate publishes detections, snapshots and stats here; this
+# is what any downstream automation subscribes to.
+#
+# `mosquitto` is the service name on the compose network. The broker is not
+# published to the LAN, so nothing outside this stack can reach it — see the
+# note in mosquitto/mosquitto.conf before changing that.
+mqtt:
+  enabled: true
+  host: mosquitto
+  port: 1883
+  topic_prefix: frigate
+  client_id: frigate
+  # Fill these in only after enabling password auth in mosquitto.conf.
+  #user: frigate
+  #password: "{FRIGATE_MQTT_PASSWORD}"
+  stats_interval: 60
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                  🧿 DETECTOR — OPENVINO (DEFAULT)
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Pairs with: COMPOSE_FILE=...:compose.openvino.yaml
+#
+# Intel iGPU or NPU. `device: GPU` uses the integrated graphics; `device: NPU`
+# uses the dedicated inference unit on Meteor Lake and later (LattePanda Sigma)
+# and needs /dev/accel/accel0 uncommented in the overlay. `device: CPU` runs
+# the same model without acceleration and is a useful A/B when you suspect the
+# GPU is the problem.
+detectors:
+  ov:
+    type: openvino
+    device: GPU
+
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                           🪸 DETECTOR — CORAL USB
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Pairs with: COMPOSE_FILE=...:compose.coral-usb.yaml
+#
+# Replace BOTH blocks above with these two lines. The Coral ships its own model
+# inside the image, so there is no `model:` block at all.
+#
+#detectors:
+#  coral:
+#    type: edgetpu
+#    device: usb
+#
+# For an M.2 or PCIe Coral instead, `device: pci`, and drop the /dev/bus/usb
+# mount from the overlay.
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                            ⚡ DETECTOR — HAILO-8L
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Pairs with: COMPOSE_FILE=...:compose.hailo.yaml
+#
+#detectors:
+#  hailo:
+#    type: hailo8l
+#    device: PCIe
+#
+#model:
+#  width: 320
+#  height: 320
+#  input_tensor: nhwc
+#  input_pixel_format: rgb
+#  input_dtype: int
+#  model_type: yolo-generic
+#  labelmap_path: /labelmap/coco-80.txt
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                 🐌 DETECTOR — CPU
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Pairs with: COMPOSE_FILE=...:compose.cpu.yaml  or  compose.rpi.yaml
+#
+# num_threads is the one knob. Leave at least one core for video decoding —
+# on a 4-core Pi, 3 is the ceiling, and 2 is often faster overall because
+# ffmpeg stops being starved.
+#
+#detectors:
+#  cpu1:
+#    type: cpu
+#    num_threads: 3
+#
+#model:
+#  path: "/cpu_model.tflite"
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                          🎞 FFMPEG
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+ffmpeg:
+  # `auto` picks the right hardware path on most hosts. Override per the
+  # README table when it guesses wrong or when you want to prove which path is
+  # in use:
+  #
+  #   preset-vaapi ............ Intel gen1-gen12, AMD          (LattePanda)
+  #   preset-intel-qsv-h264 ... Intel gen8+, H.264 streams
+  #   preset-intel-qsv-h265 ... Intel gen8+, H.265 streams
+  #   preset-rpi-64-h264 ...... Raspberry Pi 3/4, H.264        (NOT Pi 5)
+  #   preset-rpi-64-h265 ...... Raspberry Pi 3/4, H.265        (NOT Pi 5)
+  #   preset-nvidia ........... NVIDIA GPU
+  #   preset-rkmpp ............ Rockchip SoCs
+  #
+  # A Raspberry Pi 5 has no hardware H.264 decoder — the block was removed from
+  # the SoC — so leave this at `auto` there and accept software decoding. Same
+  # on a Gateworks Venice board. On those hosts the substream configuration
+  # below is doing most of the work.
+  hwaccel_args: auto
+
+  # Applies to every camera unless a camera overrides it. `preset-rtsp-generic`
+  # is right for a direct camera pull; the cameras below use
+  # `preset-rtsp-restream` instead because they read from go2rtc.
+  input_args: preset-rtsp-generic
+
+  # How long ffmpeg waits before reconnecting to a stream that dropped. Ten
+  # seconds is a reasonable balance; lower it if cameras flap on a busy Wi-Fi
+  # segment and you would rather retry hard than wait.
+  retry_interval: 10
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                               🕸 GO2RTC — RESTREAM
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Frigate bundles go2rtc. Every camera goes through it, which means ONE
+# connection to mediamtx per stream no matter how many people are watching.
+# Without this, a second browser tab opens a second pull against the camera.
+#
+# This is also what makes the browser live view WebRTC rather than a stack of
+# JPEGs, and what publishes rtsp://<frigate-host>:8554/<name> for anything else
+# on the network that wants the feed.
+# Local and remote cameras are configured IDENTICALLY. Nothing here marks a
+# camera as being across the tunnel — routing is wg0.conf's job, and Frigate
+# never knows the difference. The grouping below is for your benefit only.
+go2rtc:
+  streams:
+    # ── LOCAL LAN cameras ───────────────────────────────────────────────────
+    # mediamtx hosts on the same segment as this box. Reached by the
+    # namespace's ordinary default route, because their subnet is NOT listed
+    # in wireguard/wg0.conf.
+    front_door:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.11:8554/front_door
+
+    back_yard:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.12:8554/back_yard
+
+    # ── Cameras ACROSS THE TUNNEL ───────────────────────────────────────────
+    # These addresses must fall inside a prefix listed in AllowedIPs, and that
+    # prefix must not overlap anything local — frigate-setup.sh checks both.
+    # Address them by IP: setting DNS in wg0.conf breaks the whole namespace.
+    warehouse_dock:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@10.13.13.11:8554/warehouse_dock
+
+    # ── Optional low-res SUB stream, for detection only ──────────────────────
+    # Worth adding when the camera host can produce it cheaply — anything with
+    # a hardware encoder, or a camera that natively publishes two streams.
+    #
+    # NOT worth it on a Raspberry Pi 5 camera host. A Pi 5 has no hardware
+    # video encoder at all, so a sub path there costs a software decode plus a
+    # second software encode. Publish the main stream at 720p instead and let
+    # detection read it directly, as front_door and back_yard do above.
+    #warehouse_dock_sub:
+    #  - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@10.13.13.11:8554/warehouse_dock_sub
+
+  # Uncomment when viewers are NOT on this subnet — over WireGuard, or across a
+  # router. WebRTC advertises the address it thinks it has, and behind Docker
+  # that address is useless to an outside browser. Exactly the problem
+  # MTX_WEBRTCADDITIONALHOSTS solves on the mediamtx side.
+  #webrtc:
+  #  candidates:
+  #    - 192.168.1.50:8555
+  #    - stun:8555
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        📷 CAMERAS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Note every path here is 127.0.0.1:8554 — the go2rtc restream, not the camera.
+# That is true for local and tunnel cameras alike, which is the other reason
+# nothing in this block distinguishes them.
+cameras:
+  # ── LOCAL LAN · single stream ─────────────────────────────────────────────
+  # One input carrying both roles. The right shape when the camera host cannot
+  # cheaply produce a second stream — a Raspberry Pi 5, which has no hardware
+  # encoder — so mediamtx publishes one 720p stream and detection reads it.
+  front_door:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/front_door
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+            - detect
+            # Uncomment if the camera actually carries audio. A missing audio
+            # track on a stream declared to have one stalls ffmpeg.
+            #- audio
+
+    detect:
+      enabled: true
+      # Frigate reads the resolution from the stream itself. Set fps, not size.
+      # 5 is the recommended value and it is rarely the thing to change — every
+      # increase is a linear increase in detector load across all cameras.
+      fps: 5
+
+    # Draw motion masks over anything that moves but is never interesting:
+    # a tree line, a road at the edge of frame, a timestamp overlay burned in
+    # by the camera. Easiest to draw in the UI (Settings > Masks & Zones) and
+    # paste back here.
+    #motion:
+    #  mask:
+    #    - 0,0,1,0,1,0.1,0,0.1
+
+  back_yard:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/back_yard
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+            - detect
+    detect:
+      enabled: true
+      fps: 5
+
+  # ── ACROSS THE TUNNEL · dual stream ───────────────────────────────────────
+  # Two inputs, split by role. Use this shape when the far-end host CAN produce
+  # a substream cheaply. Recording copies the full-resolution stream to disk
+  # without decoding it; detection decodes the small one 5 times a second.
+  # That split is what makes a high-resolution camera affordable.
+  #
+  # It also matters more across a tunnel than on the LAN, because the detect
+  # stream is the one pulled continuously and it is now paying for bandwidth
+  # you do not control. Drop the second input and put `detect` back on the
+  # first if the far end has no sub path.
+  # Ships in the single-stream shape so it works against a far end that has no
+  # sub path. To split it: uncomment the second input, then delete `- detect`
+  # from the first. Exactly one input may hold the detect role.
+  warehouse_dock:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/warehouse_dock
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+            - detect
+
+        #- path: rtsp://127.0.0.1:8554/warehouse_dock_sub
+        #  input_args: preset-rtsp-restream
+        #  roles:
+        #    - detect
+
+    detect:
+      enabled: true
+      fps: 5
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        🎯 OBJECTS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# What to look for, globally. Every extra label is more work for the detector
+# on every frame, so track what you will act on and nothing else.
+#
+# The bundled models know the COCO label set: person, car, bicycle, motorcycle,
+# bus, truck, cat, dog, bird, and so on.
+objects:
+  track:
+    - person
+    - car
+    - dog
+    - cat
+
+  filters:
+    person:
+      # Ignore boxes smaller than this many pixels. The fastest way to stop
+      # a distant hedge from being a person. Tune it against real footage —
+      # the value depends entirely on how far away the camera is.
+      min_area: 3000
+      # Confidence needed before a detection counts as real.
+      min_score: 0.5
+      threshold: 0.7
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                         📼 RECORD
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Frigate 0.17 replaced the old `record.retain` block. Retention is now set
+# separately for continuous footage, motion footage, and event footage — a
+# config copied from a 0.15-era guide will not load.
+record:
+  enabled: true
+
+  # Continuous 24/7 recording. Days, not hours. 0 disables it entirely and is
+  # the right answer on any host recording to an SD card.
+  #
+  # Rough sizing at 2 MB/s per camera: one camera-day is about 21 GB. Multiply
+  # by cameras and by days, then check the number against the disk you have.
+  continuous:
+    days: 7
+
+  # Keep footage only where motion was detected. Cheaper than continuous and
+  # far more useful than event-only. 0 disables.
+  motion:
+    days: 14
+
+  # Alerts: a tracked object in a zone you care about.
+  alerts:
+    pre_capture: 5
+    post_capture: 5
+    retain:
+      days: 30
+      mode: motion
+
+  # Detections: a tracked object anywhere. Noisier than alerts by design.
+  detections:
+    pre_capture: 5
+    post_capture: 5
+    retain:
+      days: 30
+      mode: motion
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                      📸 SNAPSHOTS
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# One JPEG per tracked object. Cheap, and what any notification will attach.
+snapshots:
+  enabled: true
+  bounding_box: true
+  timestamp: false
+  retain:
+    default: 30
+    objects:
+      person: 60
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                       🦅 BIRDSEYE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# The composite wall view, and an RTSP stream of its own at
+# rtsp://<frigate-host>:8554/birdseye. `mode: motion` only shows a camera when
+# something is moving on it, which is what makes a wall of ten cameras
+# watchable instead of exhausting.
+birdseye:
+  enabled: true
+  mode: motion
+  width: 1280
+  height: 720
+  quality: 8
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                           🔐 AUTH
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Frigate generates an admin password on first start and prints it to the log.
+# Change it immediately at Settings > Users — see the README security note,
+# which matters more than it looks like it does on 0.17.2.
+auth:
+  # Brute-force throttling on the login endpoint. Off by default upstream.
+  failed_login_rate_limit: "1/second;5/minute;20/hour"
+  # Session lifetime in seconds. 86400 is one day.
+  session_length: 86400
+  # Flip to true and restart to have Frigate mint a new admin password and
+  # print it. Set it back to false afterward, or it regenerates on every start.
+  reset_admin_password: false
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                        📋 LOGGING
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+logger:
+  default: info
+  logs:
+    # Useful when chasing a camera that will not connect. Very noisy otherwise.
+    #frigate.video.ffmpeg: debug
+    frigate.record: info

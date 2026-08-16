@@ -1,0 +1,8 @@
+# Machine-specific: the routable WebRTC address of whichever host runs this.
+# .env.example is the tracked template.
+.env
+
+# Runtime output. log/ and recordings/ are bind-mount targets in compose.yaml;
+# the container writes both and neither belongs in the repo.
+log/
+recordings/

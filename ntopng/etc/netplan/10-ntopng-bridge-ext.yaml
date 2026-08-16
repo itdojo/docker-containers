@@ -1,0 +1,73 @@
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# 🧱 NETPLAN — BRIDGE0, POSITION=EXT 🧱
+# •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# etc/netplan/10-ntopng-bridge-ext.yaml
+#
+# POSITION=ext — the sensor sits OUTSIDE the firewall, inline on the link
+# between the ISP handoff and the firewall's WAN interface.
+#
+# bridge0 is deliberately ADDRESSLESS. An inline sensor with an IP on the
+# monitored segment is a target, and this segment is the dirty side. Reaching
+# this box means a separate management NIC with a static address and no
+# gateway, in its own netplan file that this package does not touch.
+#
+# host-setup.sh installs this as /etc/netplan/10-ntopng-bridge.yaml when
+# POSITION=ext. Edit the two physical port names to match your host, and keep
+# them in step with BRIDGE_PORTS in .env.
+
+network:
+  version: 2
+  renderer: networkd
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                       🔌 MEMBER PORTS — ADDRESSLESS, OFFLOADS OFF
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  # Offloads are off so the capture path sees frames as they arrived on the
+  # wire rather than coalesced segments.
+  ethernets:
+    enp1s0:
+      dhcp4: no
+      dhcp6: no
+      accept-ra: no
+      link-local: []
+      optional: true
+      generic-receive-offload: false
+      large-receive-offload: false
+      generic-segmentation-offload: false
+      tcp-segmentation-offload: false
+      tcp6-segmentation-offload: false
+
+    enp2s0:
+      dhcp4: no
+      dhcp6: no
+      accept-ra: no
+      link-local: []
+      optional: true
+      generic-receive-offload: false
+      large-receive-offload: false
+      generic-segmentation-offload: false
+      tcp-segmentation-offload: false
+      tcp6-segmentation-offload: false
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+#                                                                                     🧱 THE BRIDGE
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+  # STP off and forward-delay 0: this bridge forwards blindly and will not
+  # break a loop. It must be cut INTO a link, never patched twice into the
+  # same switch.
+  bridges:
+    bridge0:
+      dhcp4: no
+      dhcp6: no
+      accept-ra: no
+      link-local: []
+      optional: true
+      interfaces:
+        - enp1s0
+        - enp2s0
+      parameters:
+        stp: false
+        forward-delay: 0
+
+# ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
