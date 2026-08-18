@@ -119,6 +119,20 @@ IMAGES=()
 MIN_SYSTEMD=249
 BACKUP_SUFFIX="prentopng"
 
+# Host architecture, filled in by check_prerequisites. It decides one thing
+# only: where the ntopng image comes from. ntop publishes a single-arch amd64
+# image and nothing else, so an arm64 sensor has to build from their packages.
+# Deliberately NOT keyed off POSITION — which side of the firewall a sensor
+# sits on says nothing about its CPU, and compose.yaml has to stay identical
+# at both positions.
+ARCH=""
+NTOPNG_ARM64_DOCKERFILE="Dockerfile.arm64"
+NTOPNG_ARM64_TAG="ntopng-arm64:6.7"
+
+# What the box would need to hold the shipped .env, which is sized for 32 GB.
+# Used only to warn: the right headroom depends on what else runs here.
+MIN_RAM_MB_FOR_DEFAULTS=8192
+
 # ‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒
 #                                                                 PRETTY OUTPUT
 # ‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒
@@ -528,6 +542,25 @@ check_prerequisites() {
         exit 1
     fi
 
+    # Recorded before anything reads it, because the answer changes where the
+    # ntopng image comes from and there is no useful default to fall back on.
+    ARCH="$(uname -m)"
+    case "$ARCH" in
+        x86_64)
+            log_ok "Architecture is ${ARCH}; ntop's upstream image fits."
+            ;;
+        aarch64|arm64)
+            # Not a warning. It is a supported path — it just costs a build.
+            log_info "Architecture is ${ARCH}. ntop publishes no arm64 image, so"
+            log_info "ntopng is built here from ntop's official arm64 packages."
+            ;;
+        *)
+            log_err "Architecture is ${ARCH}, which this package has no image path for."
+            log_err "ntop ships an amd64 container image and arm64 packages; nothing else."
+            exit 1
+            ;;
+    esac
+
     # Prefer running docker unprivileged when the caller is in the docker group.
     if docker info >/dev/null 2>&1; then
         DOCKER=(docker)
@@ -656,6 +689,77 @@ validate_env() {
     warn_on_local_nets
 
     log_ok "POSITION=${POSITION}  MON_IF=${MON_IF}  BRIDGE_PORTS=${BRIDGE_PORTS}  WEB_BIND=${WEB_BIND}"
+
+    warn_on_sizing
+}
+
+# Normalise a docker/redis memory spelling to whole MB. Compose takes b/k/m/g
+# and redis takes the same with an optional trailing 'b', so "2g", "768m",
+# "384mb" and "2gb" all arrive here and all have to mean what they say.
+mem_to_mb() {
+    local v="${1,,}" num unit
+    [[ -n "$v" ]] || { printf '0'; return 0; }
+    v="${v%b}"                                   # 384mb -> 384m, 2gb -> 2g
+    num="${v%%[a-z]*}"
+    unit="${v#"$num"}"
+    [[ "$num" =~ ^[0-9]+$ ]] || { printf '0'; return 0; }
+    case "$unit" in
+        g)  printf '%s' $(( num * 1024 )) ;;
+        m)  printf '%s' "$num" ;;
+        k)  printf '%s' $(( num / 1024 )) ;;
+        '') printf '%s' $(( num / 1048576 )) ;;  # bare bytes
+        *)  printf '0' ;;
+    esac
+}
+
+# The shipped .env is sized for a 32 GB host — NTOPNG_MEM=12g, REDIS_MEM=4g,
+# 1.5M flows, 400k hosts. Dropped onto a 4 GB SBC that is roughly 4x the
+# machine, and the failure mode is not a clean refusal at startup: ntopng comes
+# up, fills its flow table under real traffic, and gets OOM-killed hours later.
+# So this is checked against MemTotal before any of it starts.
+#
+# Warn, never refuse. The ceilings are a blast radius rather than a reservation,
+# how much headroom the host needs depends on what else runs on it, and an
+# operator who has deliberately overcommitted a lab box should not be blocked.
+warn_on_sizing() {
+    local total_kb total_mb
+    total_kb="$(awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+    [[ "$total_kb" =~ ^[0-9]+$ ]] && (( total_kb > 0 )) || return 0
+    total_mb=$(( total_kb / 1024 ))
+
+    local ntop_mb redis_mb ceil_mb
+    ntop_mb="$(mem_to_mb "${NTOPNG_MEM:-12g}")"
+    redis_mb="$(mem_to_mb "${REDIS_MEM:-4g}")"
+    ceil_mb=$(( ntop_mb + redis_mb ))
+    (( ceil_mb > 0 )) || return 0
+
+    # Headroom for the kernel, the deep RX rings this script sets on every
+    # capture NIC, and the capture path itself. Not generous; it is a floor.
+    local headroom_mb=768
+
+    if (( ceil_mb + headroom_mb <= total_mb )); then
+        log_ok "Container ceilings total ${ceil_mb} MB against ${total_mb} MB of RAM."
+        return 0
+    fi
+
+    log_warn "SIZING: the container ceilings do not fit this host."
+    log_warn "    NTOPNG_MEM + REDIS_MEM = ${ceil_mb} MB"
+    log_warn "    MemTotal               = ${total_mb} MB"
+    log_warn "ntopng will start and then be OOM-killed once the flow table fills"
+    log_warn "under real traffic, which can be hours in. The knobs that actually"
+    log_warn "consume the RAM are MAX_FLOWS and MAX_HOSTS, not the ceilings."
+    if (( total_mb < MIN_RAM_MB_FOR_DEFAULTS )); then
+        log_warn "For a ~${total_mb} MB board, ntop's medium tier is the right target:"
+        log_warn "    MAX_FLOWS=200000    MAX_HOSTS=25000"
+        log_warn "    NTOPNG_MEM=2g       REDIS_MEM=768m   REDIS_MAXMEM=384mb"
+        log_warn "Sizing table: https://www.ntop.org/guides/ntopng/performances/hardware_sizing.html"
+    fi
+    log_warn "Edit ${SCRIPT_DIR}/.env, or continue and size from evidence with"
+    log_warn "    docker stats --no-stream"
+    if ! ask_confirm "Continue with the current sizing?" N; then
+        log_next "Retune MAX_FLOWS / MAX_HOSTS / NTOPNG_MEM / REDIS_MEM in .env, then rerun."
+        exit 0
+    fi
 }
 
 # The wildcard rule is the one place the two positions genuinely disagree, and
@@ -1150,6 +1254,106 @@ have_default_route() {
 #   int  bridge0 holds a DHCP lease and its default route, so pulling works.
 #        verify_bridge_address has already waited for that lease, which is the
 #        only reason sampling the route here is reliable.
+# Set or replace a KEY=value in .env, preserving the file's mode. Used only by
+# ensure_arch_image; .env is the operator's file and the script has no business
+# rewriting anything else in it.
+set_env_var() {
+    local key="$1" val="$2" tmp
+    if grep -qE "^[[:space:]]*${key}=" "$ENV_FILE" 2>/dev/null; then
+        tmp="$(mktemp)"
+        awk -v k="$key" -v v="$val" '
+            $0 ~ "^[[:space:]]*"k"=" && !seen { print k"="v; seen=1; next }
+            { print }
+        ' "$ENV_FILE" >"$tmp"
+        # Copy content rather than mv, so the original inode keeps mode 600
+        # instead of inheriting mktemp's.
+        cat "$tmp" >"$ENV_FILE"
+        rm -f "$tmp"
+        log_ok "Set ${key}=${val} in .env."
+    else
+        printf '%s=%s\n' "$key" "$val" >>"$ENV_FILE"
+        log_ok "Added ${key}=${val} to .env."
+    fi
+}
+
+# ntop publishes exactly one ntopng image, single-arch amd64, so on arm64 there
+# is nothing to pull — `compose up` fails with "found but does not provide the
+# specified platform (linux/arm64)". They do publish official arm64 packages,
+# so the image is built here from those rather than taken from one of the
+# third-party arm64 rebuilds on Docker Hub, whose provenance is unknown and
+# whose builds are years stale.
+#
+# The result is written to .env as NTOPNG_IMAGE, which is the only thing
+# compose.yaml knows about any of this — it stays arch- and position-neutral.
+# On amd64 this function returns immediately and NTOPNG_IMAGE stays unset, so
+# compose falls back to ntop/ntopng:latest.
+ensure_arch_image() {
+    case "$ARCH" in
+        aarch64|arm64) ;;
+        *) return 0 ;;
+    esac
+
+    # An operator who pinned NTOPNG_IMAGE by hand — their own registry, a
+    # specific digest — gets left alone as long as the image is actually here.
+    if [[ -n "${NTOPNG_IMAGE:-}" ]] \
+       && "${DOCKER[@]}" image inspect "$NTOPNG_IMAGE" >/dev/null 2>&1; then
+        log_ok "NTOPNG_IMAGE=${NTOPNG_IMAGE} is present; not rebuilding."
+        return 0
+    fi
+    if [[ -n "${NTOPNG_IMAGE:-}" && "$NTOPNG_IMAGE" != "$NTOPNG_ARM64_TAG" ]]; then
+        log_warn "NTOPNG_IMAGE=${NTOPNG_IMAGE} is set but not present on this host."
+        log_warn "Building ${NTOPNG_ARM64_TAG} instead and repointing .env at it."
+    fi
+
+    if "${DOCKER[@]}" image inspect "$NTOPNG_ARM64_TAG" >/dev/null 2>&1; then
+        log_ok "${NTOPNG_ARM64_TAG} is already built."
+    else
+        if [[ ! -f "$NTOPNG_ARM64_DOCKERFILE" ]]; then
+            log_err "Missing ${SCRIPT_DIR}/${NTOPNG_ARM64_DOCKERFILE}, which is how an"
+            log_err "arm64 host gets an ntopng image. Restore it from the repo and rerun."
+            exit 1
+        fi
+        # The build apt-gets from packages.ntop.org, so it needs a route for
+        # the same reason a pull does — and says so in the same terms, because
+        # under POSITION=ext a routeless host is the design, not a fault.
+        if ! have_default_route; then
+            log_err "No default route, and building the arm64 ntopng image needs one"
+            log_err "(it installs ntop's packages from packages.ntop.org)."
+            if [[ "$POSITION" == "int" ]]; then
+                log_err "POSITION is int, so the lease is the thing to fix:"
+                log_err "    networkctl status ${MON_IF}"
+            else
+                log_err "Expected at POSITION=ext. Build it on a routed arm64 machine:"
+                log_err "    docker build -f ${NTOPNG_ARM64_DOCKERFILE} -t ${NTOPNG_ARM64_TAG} ."
+                log_err "    docker save ${NTOPNG_ARM64_TAG} | ssh this-host 'docker load'"
+                log_err "Then set NTOPNG_IMAGE=${NTOPNG_ARM64_TAG} in .env and rerun."
+            fi
+            exit 1
+        fi
+
+        log_step "Building ${NTOPNG_ARM64_TAG} from ntop's official arm64 packages..."
+        log_info "First build takes several minutes on an SBC; reruns are cached."
+        if ! "${DOCKER[@]}" build -f "$NTOPNG_ARM64_DOCKERFILE" -t "$NTOPNG_ARM64_TAG" .; then
+            log_err "The arm64 ntopng build failed. The usual causes are a dropped"
+            log_err "route mid-build or packages.ntop.org being unreachable."
+            exit 1
+        fi
+        log_ok "Built ${NTOPNG_ARM64_TAG}."
+    fi
+
+    # Report which ntopng actually landed. The repo moves, so an unpinned
+    # rebuild months apart is a different build, and "which version is on this
+    # sensor" should not require starting a container to answer.
+    local built
+    built="$("${DOCKER[@]}" run --rm --entrypoint cat "$NTOPNG_ARM64_TAG" \
+             /etc/ntopng-build-version 2>/dev/null || true)"
+    [[ -n "$built" ]] && log_ok "Image carries ntopng ${built}."
+
+    set_env_var NTOPNG_IMAGE "$NTOPNG_ARM64_TAG"
+    NTOPNG_IMAGE="$NTOPNG_ARM64_TAG"
+    export NTOPNG_IMAGE
+}
+
 ensure_images() {
     log_step "Checking that the container images are present locally..."
 
@@ -1222,6 +1426,8 @@ wait_for_health() {
 
 start_stack() {
     log_phase "CONTAINER STACK"
+    ensure_arch_image     # must precede ensure_images: it sets NTOPNG_IMAGE,
+                          # which is what `compose config --images` resolves
     ensure_images
 
     log_step "Bringing the stack up..."

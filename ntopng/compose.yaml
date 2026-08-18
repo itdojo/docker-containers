@@ -170,7 +170,18 @@ services:
     #   .dev:latest    is the development build; among other differences it ships
     #                  no /usr/bin/clickhouse-client.
     #   :latest        is the 6.6-stable build.
-    image: ntop/ntopng:latest
+    #
+    # ARCHITECTURE: that upstream image is amd64-ONLY. Both ntop repos publish a
+    # single tag carrying a single-arch amd64 manifest, so on an arm64 host this
+    # fails with "found but does not provide the specified platform (linux/arm64)".
+    # ntop does ship official arm64 *packages*, so host-setup.sh builds them into
+    # a local image with Dockerfile.arm64 and writes the tag here as NTOPNG_IMAGE.
+    #
+    # The indirection is what keeps this file arch-neutral, which matters because
+    # it must also stay identical at both POSITIONs — a compose that branched on
+    # the host would be the argument for splitting the package back into two.
+    # Unset means amd64 and the upstream image, which is the correct default.
+    image: ${NTOPNG_IMAGE:-ntop/ntopng:latest}
     container_name: ntopng
     restart: unless-stopped
 

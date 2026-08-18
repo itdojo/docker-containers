@@ -269,6 +269,47 @@ Note also that the image must be `ntop/ntopng:latest`. `:stable` does not exist
 — only `latest` is published — and `ntop/ntopng.dev:latest` is the development
 build, which ships no `clickhouse-client` binary at all.
 
+### On arm64
+
+That upstream image is **amd64-only**. Both ntop repos publish one tag carrying
+a single-arch amd64 manifest, so on an SBC sensor `compose up` fails with:
+
+```
+image with reference ntop/ntopng:latest was found but does not provide the
+specified platform (linux/arm64)
+```
+
+ntop does publish official arm64 *packages*, in the Raspberry Pi apt repos, so
+`host-setup.sh` builds them into a local image using `Dockerfile.arm64` and
+writes the resulting tag into `.env` as `NTOPNG_IMAGE`. `compose.yaml` reads
+`${NTOPNG_IMAGE:-ntop/ntopng:latest}` and knows nothing else about
+architecture — unset means amd64 and the upstream image.
+
+The first build takes several minutes on a small board; reruns are cached.
+Delete the `NTOPNG_IMAGE` line from `.env` to force a rebuild. To pin a
+specific build so two sensors provably match:
+
+```bash
+docker build -f Dockerfile.arm64 \
+    --build-arg NTOPNG_VERSION=6.7.260805-28837 -t ntopng-arm64:6.7 .
+```
+
+Emulation is not an option worth taking: `platform: linux/amd64` plus
+`qemu-user-static` will start, but emulating a packet-capture hot path drops
+frames, which is the one thing this box exists not to do.
+
+**Size the box before you trust it.** The shipped `.env` is ntop's *large*
+tier and assumes a 32 GB host; a 4 GB / 4-core SBC is their *medium* tier and
+needs `MAX_FLOWS=200000`, `MAX_HOSTS=25000`, `NTOPNG_MEM=2g`, `REDIS_MEM=768m`,
+`REDIS_MAXMEM=384mb`. `host-setup.sh` compares the ceilings against `MemTotal`
+and warns, because the alternative failure is ntopng starting fine and being
+OOM-killed hours later once the flow table fills. Their sizing table:
+<https://www.ntop.org/guides/ntopng/performances/hardware_sizing.html>
+
+One caveat that table does not carry: its core counts are not benchmarked
+against in-order low-power cores. nDPI on four Cortex-A53s delivers well under
+what four x86 cores do, so treat the medium row as an upper bound on an SBC.
+
 ## Order matters
 
 Host networking first, then sysctls, then containers. Bringing the stack up

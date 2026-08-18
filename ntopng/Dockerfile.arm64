@@ -1,0 +1,103 @@
+# ‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒
+#                                                                ntopng / arm64
+# ‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒
+#
+# ntop publishes no arm64 container image. `ntop/ntopng` and `ntop/ntopng.dev`
+# each carry exactly one tag, `latest`, and both are single-arch amd64 — which
+# is why an SBC sensor fails with:
+#
+#     image with reference ntop/ntopng:latest was found but does not provide
+#     the specified platform (linux/arm64)
+#
+# ntop does publish official arm64 *packages*, in the Raspberry Pi apt repos.
+# This file turns those into the image compose expects, so the arm64 path runs
+# ntop's own binaries rather than a third-party rebuild of unknown provenance.
+#
+# Built by host-setup.sh on arm64 hosts only, and tagged into NTOPNG_IMAGE in
+# .env. compose.yaml never references this file: it stays arch-neutral behind
+# that one variable, which is what keeps it byte-identical at both POSITIONs.
+#
+# Build directly, outside the script:
+#     docker build -f Dockerfile.arm64 -t ntopng-arm64:6.7 .
+# ‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒
+
+# bookworm, not trixie, and not Ubuntu. ntop builds the arm64 ntopng package
+# against bookworm's library versions — the Depends line names libldap-2.5-0,
+# libhiredis0.14, libsnmp40 and libjson-c5 specifically. trixie has moved past
+# several of those, and Ubuntu noble is not a target at all: ntop's Ubuntu repo
+# (packages.ntop.org/apt-stable/24.04/) publishes `all/` and `x64/` only.
+FROM debian:bookworm-slim
+
+# Optional pin, empty by default. Unpinned tracks whatever the ntop repo
+# currently carries, which is what you want on a sensor you rebuild rarely.
+# Pin when you need two boards to run provably the same build:
+#     docker build -f Dockerfile.arm64 \
+#         --build-arg NTOPNG_VERSION=6.7.260805-28837 -t ntopng-arm64:6.7 .
+ARG NTOPNG_VERSION=""
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN set -eux; \
+    apt-get update; \
+    # lsb-release is not decoration: apt-ntop.deb's postinst shells out to
+    # `lsb_release -c -s` to build the repo URL, and without it the package
+    # configures no repo at all and the ntopng install below fails on a
+    # missing ndpi.
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        lsb-release; \
+    \
+    # The repo config has to come from ntop's own package rather than a
+    # hand-written sources.list. ntopng Depends on ntopng-data and ndpi at
+    # exact versions, both of which live only in that repo, so installing the
+    # single .deb by hand cannot resolve. postinst also picks the arm64 path
+    # off `uname -m` and runs its own `apt update`.
+    curl -fsSLo /tmp/apt-ntop.deb https://packages.ntop.org/RaspberryPI/apt-ntop.deb; \
+    apt-get install -y --no-install-recommends /tmp/apt-ntop.deb; \
+    rm -f /tmp/apt-ntop.deb; \
+    apt-get update; \
+    \
+    if [ -n "$NTOPNG_VERSION" ]; then \
+        apt-get install -y --no-install-recommends "ntopng=$NTOPNG_VERSION"; \
+    else \
+        apt-get install -y --no-install-recommends ntopng; \
+    fi; \
+    \
+    # ntopng Depends on redis-server, so Debian's redis lands here whether we
+    # want it or not. It is never started: compose overrides the entrypoint to
+    # `ntopng` precisely to skip the upstream image's /run.sh, which starts a
+    # bundled redis that would race the tuned one we publish on 127.0.0.1:6379.
+    # Disabling the unit is belt-and-braces — there is no init in this image to
+    # read it — but it makes the intent legible to anyone who exec's in.
+    rm -f /etc/init.d/redis-server; \
+    \
+    # The package creates /var/lib/ntopng (0700, uid 999) but NOT
+    # /var/log/ntopng, and compose mounts a named volume onto both. Docker
+    # would happily invent the missing mountpoint as root-owned 0755, so this
+    # is not a crash — it is a silent ownership divergence between the arm64
+    # and amd64 paths under one compose file. Create it to match its sibling.
+    install -d -o 999 -g 999 -m 0700 /var/log/ntopng; \
+    \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
+# Recorded so `docker image inspect` answers "which ntopng is this?" without
+# starting a container. Reads the installed version rather than the build arg,
+# so it is correct in the unpinned case too.
+RUN set -eux; \
+    v="$(dpkg-query -W -f='${Version}' ntopng)"; \
+    printf '%s\n' "$v" > /etc/ntopng-build-version; \
+    echo "built ntopng ${v}"
+
+LABEL org.opencontainers.image.title="ntopng (arm64)" \
+      org.opencontainers.image.description="ntopng built from ntop's official arm64 packages; no upstream arm64 image exists" \
+      org.opencontainers.image.source="https://packages.ntop.org/RaspberryPI/bookworm_pi/arm64/ntopng/" \
+      org.opencontainers.image.base.name="debian:bookworm-slim"
+
+# Deliberately NOT an ENTRYPOINT of /run.sh, and deliberately matching what
+# compose already sets. compose.yaml pins `entrypoint: ["ntopng"]` for the
+# upstream image; keeping the same default here means the arm64 and amd64
+# images behave identically under the same compose file, which is the whole
+# point of hiding the difference behind NTOPNG_IMAGE.
+ENTRYPOINT ["ntopng"]
