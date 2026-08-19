@@ -73,10 +73,10 @@ Three things, and only these:
 2. **`LOCAL_NETS` and `WEB_BIND`** in `.env`, per your position. These are the
    two settings where a plausible-looking wrong value produces a sensor that
    runs perfectly and tells you nothing — or exposes its admin UI.
-3. **The netplan file for your position** — the two physical port names, if
-   yours are not `enp1s0` / `enp2s0`. Then make `MON_IF` and `BRIDGE_PORTS` in
-   `.env` match what you just wrote there. Memory ceilings too, if the host is
-   not 32 GB.
+3. **The netplan file for your position** — the physical port names, if yours
+   are not the ones shipped. Then make `MON_IF` and `BRIDGE_PORTS` in `.env`
+   match what you just wrote there. Memory ceilings too, if the host is not
+   32 GB, and `stp:` if you are changing the port count — see below.
 
 ---
 
@@ -197,16 +197,69 @@ derived from a DUID, and a DHCP server matching reservations on the hardware
 address will not recognise it — the classic "my reservation is ignored on
 Ubuntu" symptom.
 
-### Cabling: this bridge will not save you from a loop
+### Cabling, loops, and STP
 
-STP is off and `forward-delay` is 0, so `bridge0` forwards blindly. It must be
-cut **into** a link — switch on one port, the downstream device or segment on
-the other. Patch both ports into the same switch and the same VLAN and you have
-built a broadcast storm.
+**Two ports (`ext`, and any strict inline tap): STP off.** `forward-delay` is 0
+and `bridge0` forwards blindly. It must be cut **into** a link — switch on one
+port, the downstream device or segment on the other. Patch both ports into the
+same switch and the same VLAN and you have built a broadcast storm. STP is off
+on purpose here: a sensor that participates in the LAN's spanning tree can have
+one of its ports *blocked*, which severs the very link it is inline on. The
+bridge is meant to be invisible to the topology, not a participant in it.
 
-STP is off on purpose: a sensor that participates in the LAN's spanning tree
-can have one of its ports blocked, which severs the very link it is inline on.
-The bridge is meant to be invisible to the topology, not a participant in it.
+**Three or more ports (the shipped `int` file): STP on.** A multi-port bridge is
+a software switch for the segment, not a tap cut into one link, and the calculus
+inverts. In a room where people patch cables, someone eventually lands two of
+its ports on the same segment — a loop *through* this bridge — and without STP
+that is a broadcast storm across everything downstream. STP costs transparency,
+since the bridge emits BPDUs and is visible on the wire, and buys a blocked port
+instead of a meltdown. In a teaching lab that is the right trade.
+
+The shipped int netplan uses `forward-delay: 4`, `hello-time: 1`, `max-age: 6` —
+roughly 8s to forwarding instead of the default ~30s, which matters when cables
+move constantly. `max-age` is pinned rather than left at 20 because 802.1D wants
+`max-age <= 2 x (forward-delay - 1)`; the kernel accepts the inconsistent
+pairing silently, and it would only bite if a real STP peer appeared.
+
+What STP here does **not** protect against is a loop patched entirely inside one
+downstream switch. That storm never transits this bridge, so this bridge cannot
+block it.
+
+### What a bridged sensor sees, and what it does not
+
+Every frame crossing between two member ports transits the CPU and is visible to
+ntopng. A frame switched entirely inside a downstream switch — two hosts on the
+same box — never reaches this host, and no setting changes that.
+
+What *does* still arrive is every broadcast and multicast frame from every
+device on the segment, because those flood: ARP, DHCP, mDNS, SSDP, NetBIOS. So
+the host table populates with the whole segment even where individual
+conversations are invisible. Splitting endpoints across two downstream switches
+rather than one converts their traffic from invisible to visible, and is worth
+doing deliberately.
+
+### The bridge MAC is not the lowest member MAC
+
+Folklore says a Linux bridge inherits the numerically lowest member MAC. The
+kernel would, but systemd overrides it: `/usr/lib/systemd/network/99-default.link`
+ships `MACAddressPolicy=persistent` matching `OriginalName=*`, which matches
+bridge devices too. `bridge0` therefore takes a locally-administered MAC derived
+deterministically from the machine-id and the device **name**.
+
+Three consequences. The host does **not** keep the address its uplink port holds
+today — expect a new lease. That MAC is stable across reboots and across
+deleting and recreating the bridge, so a reservation against it sticks. And you
+can read it *before* committing to any of this, on a throwaway bridge of the
+same name, which touches no real interface:
+
+```bash
+sudo ip link add bridge0 type bridge && ip -br link show bridge0
+sudo ip link del bridge0
+```
+
+To keep the address the uplink holds today instead, add `macaddress:` to the
+`bridge0` stanza with the uplink's MAC — legitimate and common, at the cost of
+two interfaces sharing a MAC.
 
 ### Applying netplan may cut your own session
 

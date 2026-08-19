@@ -1539,7 +1539,7 @@ main() {
         log_next "Then set, for your position:"
         log_next "    LOCAL_NETS   ext: the WAN prefix.  int: your internal subnets."
         log_next "    WEB_BIND     ext: the management IP or 127.0.0.1.  int: 0.0.0.0."
-        log_next "    BRIDGE_PORTS the two physical ports, matching the netplan file."
+        log_next "    BRIDGE_PORTS the physical ports, matching the netplan file."
         log_next "Then run ./host-setup.sh again."
         echo
         exit 0

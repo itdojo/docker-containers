@@ -4,17 +4,21 @@
 
 # etc/netplan/10-ntopng-bridge-int.yaml
 #
-# POSITION=int — the sensor sits INSIDE the firewall, inline on a LAN link.
+# POSITION=int — the sensor sits INSIDE the firewall, inline on the LAN.
 #
 # The only difference from the ext file is the bridge0 stanza: here it takes a
 # DHCP lease, so the host is reachable on the segment it is monitoring and
 # needs no separate management NIC. Everything else — addressless member
-# ports, offloads off, STP off, forward-delay 0 — is identical, because the
-# capture path does not care which side of the firewall it is on.
+# ports, offloads off — is identical, because the capture path does not care
+# which side of the firewall it is on.
 #
 # host-setup.sh installs this as /etc/netplan/10-ntopng-bridge.yaml when
-# POSITION=int. Edit the two physical port names to match your host, and keep
-# them in step with BRIDGE_PORTS in .env.
+# POSITION=int. Edit the port names to match your host, and keep them in step
+# with BRIDGE_PORTS in .env.
+#
+# As shipped this is the four-port lab bridge described below. A two-port
+# inline tap is the same file with two entries instead of four; see the STP
+# note, which is the one setting that should change with the port count.
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 #                                                                       🔀 THE TRADE YOU ARE MAKING
@@ -25,19 +29,48 @@
 # running a second cable to a management NIC, and inside the firewall it is
 # usually the right price. Outside it is not — hence two files.
 #
-# CABLING: STP is off and forward-delay is 0, so this bridge forwards blindly
-# and will not break a loop. It must be cut INTO a link — switch on one port,
-# the downstream device or segment on the other. Patch both ports into the
-# same switch and same VLAN and you have built a broadcast storm. STP is off
-# on purpose: a sensor that participates in the LAN's spanning tree can have
-# one of its ports blocked, which severs the very link it is inline on.
+# WHAT THIS BRIDGE SEES, AND WHAT IT DOES NOT. Every frame that crosses
+# between two member ports transits the CPU and is visible to ntopng. A frame
+# switched entirely inside a downstream switch — student1 to student2 on the
+# same box — never reaches this host, and no setting here changes that. What
+# does still arrive is every broadcast and multicast frame from every device
+# on the segment, because those flood: ARP, DHCP, mDNS, SSDP, NetBIOS. So the
+# host table populates with the whole lab even though some conversations
+# between them are invisible. Splitting endpoints across two downstream
+# switches rather than one is what converts their traffic from invisible to
+# visible, and is worth doing deliberately.
 #
-# DHCP RESERVATION: the lease is requested by bridge0, whose MAC is inherited
-# from the lowest-numbered member port — NOT from a MAC you will find on the
-# management NIC, because there isn't one. Read the address you must reserve
-# against with:
+# THE BRIDGE IS A CUT POINT. Every member port is a link that goes down when
+# this host reboots. Kernel bridging survives the ntopng container dying, so
+# only a reboot or a kernel-level fault takes the segment with it.
 #
-#     ip -br link show bridge0
+# DHCP RESERVATION: the lease is requested by bridge0, so what matters is
+# bridge0's MAC — and on a modern systemd that is NOT the lowest member MAC,
+# which is the folklore answer and is wrong here. The kernel would inherit the
+# lowest member MAC, but /usr/lib/systemd/network/99-default.link ships
+# MACAddressPolicy=persistent matching OriginalName=*, and that matches bridge
+# devices too. So bridge0 gets a locally-administered MAC derived
+# deterministically from the machine-id and the device NAME.
+#
+# Three consequences worth knowing before you cut over:
+#
+#   1. The host does NOT keep the address its uplink port holds today. bridge0
+#      is a different client identifier, so expect a different lease.
+#   2. That MAC is stable across reboots and across deleting and recreating
+#      the bridge, because it is derived rather than random. A reservation
+#      against it sticks.
+#   3. You can read it BEFORE committing to any of this, on a throwaway bridge
+#      of the same name, which touches no real interface:
+#
+#          sudo ip link add bridge0 type bridge && ip -br link show bridge0
+#          sudo ip link del bridge0
+#
+#      The name is what makes this predictive: same name, same derived MAC.
+#
+# To keep the address the uplink holds today instead, pin the bridge MAC by
+# adding `macaddress:` to the bridge0 stanza with the uplink's MAC. That is a
+# legitimate and common choice — it keeps existing reservations and switch CAM
+# entries valid — at the cost of two interfaces sharing a MAC.
 #
 # dhcp-identifier: mac below is load-bearing for that reservation. By default
 # systemd-networkd sends an RFC 4361 client identifier derived from a DUID,
@@ -50,6 +83,12 @@
 # two minutes whenever the DHCP server is slow or absent. The cost is that the
 # stack can start before the lease lands, which is exactly why WEB_BIND
 # defaults to a wildcard for this position — see .env.example.
+#
+# USB NIC NAMES: an `enx<mac>` name is derived from the adapter's MAC, so it
+# follows the adapter rather than the socket — more stable than a PCI-path
+# name for something you might move between ports. The flip side is that
+# REPLACING an adapter changes the name, and both this file and BRIDGE_PORTS
+# must be updated together when that happens.
 
 network:
   version: 2
@@ -58,7 +97,16 @@ network:
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 #                                                       🔌 MEMBER PORTS — ADDRESSLESS, OFFLOADS OFF
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# Offloads are off on every member for the same reason at every position: GRO
+# and LRO hand the stack reassembled super-frames, so ntopng sees one 3314-byte
+# "packet" where the wire carried three, and both packet counts and sizes are
+# wrong. netprep re-applies this with ethtool at container start, because a
+# udev re-trigger resets NICs to driver defaults. Some adapters — USB ones in
+# particular — do not implement every knob; an unsupported key is ignored
+# rather than fatal.
   ethernets:
+
+    # Uplink toward the firewall.
     enp1s0:
       dhcp4: no
       dhcp6: no
@@ -71,7 +119,35 @@ network:
       tcp-segmentation-offload: false
       tcp6-segmentation-offload: false
 
+    # Downstream: access point. Must be in BRIDGE mode, not routing/NAT —
+    # an AP that NATs presents every wireless client to ntopng as one address.
     enp2s0:
+      dhcp4: no
+      dhcp6: no
+      accept-ra: no
+      link-local: []
+      optional: true
+      generic-receive-offload: false
+      large-receive-offload: false
+      generic-segmentation-offload: false
+      tcp-segmentation-offload: false
+      tcp6-segmentation-offload: false
+
+    # Downstream: student switch 1 (USB adapter).
+    enx00e04c9a1b47:
+      dhcp4: no
+      dhcp6: no
+      accept-ra: no
+      link-local: []
+      optional: true
+      generic-receive-offload: false
+      large-receive-offload: false
+      generic-segmentation-offload: false
+      tcp-segmentation-offload: false
+      tcp6-segmentation-offload: false
+
+    # Downstream: student switch 2 (USB adapter).
+    enx00e04c99a6ba:
       dhcp4: no
       dhcp6: no
       accept-ra: no
@@ -86,6 +162,30 @@ network:
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 #                                               🧱 THE BRIDGE — DHCP LEASE ON THE MONITORED SEGMENT
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
+# STP IS ON HERE, AND THAT IS A DEPARTURE. The ext file leaves it off, and a
+# strict two-port inline tap should too: a sensor cut into one link has no loop
+# to break, and participating in someone else's spanning tree risks having a
+# port BLOCKED — which severs the very link it is inline on.
+#
+# A multi-port bridge inverts that. With three downstream ports in one flat L2
+# domain, in a room where people patch cables, someone eventually connects two
+# of them to the same segment. That is a loop through THIS bridge, and without
+# STP it is a broadcast storm that takes down the whole lab. STP costs
+# transparency — the bridge emits BPDUs and is therefore visible on the wire —
+# and buys a blocked port instead of a meltdown. In a teaching lab that is the
+# right trade. On a strict two-port tap it is not: set stp: false there.
+#
+# What STP here does NOT protect against is a loop patched entirely within one
+# downstream switch. That storm never transits this bridge, so this bridge
+# cannot block it.
+#
+# TIMERS. Defaults mean ~30s before a port forwards after link-up, which is
+# miserable in a room where cables move constantly. forward-delay 4 gives
+# roughly 8s. max-age is pinned rather than left at its 20s default because
+# 802.1D wants max-age <= 2 x (forward-delay - 1), which is 6 here; the kernel
+# accepts the inconsistent pairing without complaint, and it would only bite if
+# a real STP peer ever appeared on the segment. hello-time 1 keeps detection
+# proportionate to those.
   bridges:
     bridge0:
       dhcp4: true
@@ -100,8 +200,12 @@ network:
       interfaces:
         - enp1s0
         - enp2s0
+        - enx00e04c9a1b47
+        - enx00e04c99a6ba
       parameters:
-        stp: false
-        forward-delay: 0
+        stp: true
+        forward-delay: 4
+        hello-time: 1
+        max-age: 6
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
