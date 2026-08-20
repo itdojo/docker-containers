@@ -31,8 +31,16 @@ services:
       #- /dev/accel/accel0:/dev/accel/accel0
 
     # The container user must be in the host's `render` group to open the node.
-    # If Frigate logs a permission error on /dev/dri/renderD128, put the host's
-    # numeric render GID here — the name does not resolve inside the container.
-    #   getent group render
+    # The name does not resolve across the boundary, so this has to be the
+    # host's NUMERIC render GID:
+    #   getent group render | cut -d: -f3
+    #
+    # There is deliberately no default. The GID is not stable across distros —
+    # Debian 12 lands near 104-106, Ubuntu 22.04 near 110, Ubuntu 24.04 at 993
+    # because systemd allocates it downward from 999 — so any baked-in number
+    # is wrong on most hosts, and wrong silently: the container starts, VAAPI
+    # and the GPU stats fail with permission errors that name a group, not a
+    # GID. A missing value is a loud compose error instead. frigate-setup.sh
+    # fills it in automatically.
     group_add:
-      - "${RENDER_GID:-105}"
+      - "${RENDER_GID:?RENDER_GID is not set. Run ./frigate-setup.sh, or set it by hand from: getent group render | cut -d: -f3}"

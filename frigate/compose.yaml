@@ -61,7 +61,15 @@ services:
       # frigate-setup.sh generates one if .env leaves it empty.
       - FRIGATE_JWT_SECRET=${FRIGATE_JWT_SECRET:-}
       - TZ=${TZ:-Etc/UTC}
-      - LIBVA_DRIVER_NAME=${LIBVA_DRIVER_NAME:-}
+      # Bare form on purpose, and .env.example ships the key COMMENTED OUT.
+      # An EMPTY value here is worse than an unset one: libva stops
+      # auto-detecting and tries to dlopen `_drv_video.so`, so vaInitialize
+      # fails outright and every hwaccel path dies.
+      #
+      # The old `${LIBVA_DRIVER_NAME:-}` guaranteed that empty value on every
+      # host. The bare form only avoids it when .env omits the key entirely —
+      # `LIBVA_DRIVER_NAME=` in .env still injects "". Both halves matter.
+      - LIBVA_DRIVER_NAME
 
 # ⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼⎼
 #                                                                                        💾 VOLUMES

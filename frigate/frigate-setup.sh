@@ -553,10 +553,29 @@ check_devices() {
                 log_next "ls -l /dev/dri/   — a second GPU may put it at renderD129; edit compose.openvino.yaml."
                 log_next "On a Raspberry Pi or Gateworks board there is no Intel GPU. Use coral-usb, hailo, rpi or cpu."
             fi
+            # RENDER_GID has no default in the overlay on purpose: no single
+            # number is right across distros, and a wrong one fails silently
+            # as EACCES on the render node. Detect it and write it.
             local rgid; rgid="$(env_get RENDER_GID)"
             local real; real="$(getent group render 2>/dev/null | cut -d: -f3 || true)"
-            if [[ -n "$real" && -n "$rgid" && "$real" != "$rgid" ]]; then
-                warn "RENDER_GID is $rgid but this host's render group is $real. Frigate will get EACCES on the render node."
+            if [[ -z "$real" ]]; then
+                warn "No 'render' group on this host. Set RENDER_GID by hand to the group owning /dev/dri/renderD128."
+            elif [[ -z "$rgid" ]]; then
+                if (( CHECK_ONLY )); then
+                    warn "RENDER_GID is empty. This host's render group is $real; the openvino profile will not start until it is set."
+                else
+                    env_set RENDER_GID "$real"
+                    log_ok "Detected render group $real and wrote RENDER_GID to .env."
+                fi
+            elif [[ "$real" != "$rgid" ]]; then
+                if (( CHECK_ONLY )); then
+                    warn "RENDER_GID is $rgid but this host's render group is $real. Frigate will get EACCES on the render node."
+                else
+                    env_set RENDER_GID "$real"
+                    log_ok "RENDER_GID was $rgid; this host's render group is $real. Corrected in .env."
+                fi
+            else
+                log_ok "RENDER_GID matches this host's render group ($real)."
             fi
             ;;
         coral-usb)
