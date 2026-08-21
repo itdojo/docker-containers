@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 A library of small, self-contained Docker Compose stacks — one directory per stack — used in IT Dojo classes and on the bench. It replaces a repo-per-compose-file sprawl: a whole git repo for one YAML file is overhead without benefit. Each stack is independent (`cd <stack> && docker compose up -d`).
 
-The repo is **private** as of 2026-08-16, and therefore `policy: auto` in the fleet manifest — fleet checkpoints and pushes it like any other private repo. It was public and `notify` until then; the stacks added since (`ntopng`, `frigate`, `hostapd`, `pihole-dnscrypt`) prepare real hosts and carry real network topology, which is not classroom material.
+The repo is **public** as of 2026-08-21, and therefore `policy: notify` in the fleet manifest — fleet fetches and fast-forwards it but never auto-commits, so every publish is a deliberate `git push` by hand. It was private and `auto` for five days (2026-08-16 to 2026-08-21). The four host-preparing stacks (`ntopng`, `frigate`, `hostapd`, `pihole-dnscrypt`) are public along with everything else; their real values live in gitignored `.env` files and bind-mounts, and the tracked `.example` files carry placeholders.
 
 ## Rules
 
@@ -16,7 +16,7 @@ The repo is **private** as of 2026-08-16, and therefore `policy: auto` in the fl
 - **Large media never enters history.** `*.mp4` is ignored at the root. `ntopng/docs/` holds 36 MB of explainer video that would outweigh every stack combined and could not be removed later without a history rewrite; the `.html` explainers beside them are tracked.
 - **Folding in an existing repo?** Remove its nested `.git` first, or use `git subtree add` if its history is worth keeping here. A plain `git add .` over a nested repo silently creates a gitlink, which clones as an empty directory for everyone else.
 - **`.env` is gitignored with one deliberate exception.** `https-right-quick/.env` holds demo credentials that are part of the lab and is tracked on purpose. Machine-specific env files (`mediamtx/.env`) stay ignored; ship a tracked `.env.example` beside them.
-- **Private by default, which inverts an old rule.** Adding a stack here no longer publishes it. The sensitivity line still applies at *add* time — nothing that unlocks money or machines, even privately — but the reverse now needs thought too: anything intended to be public requires a deliberate second move, since committing here no longer accomplishes it.
+- **Public, so committing is publishing.** The sensitivity check runs when a stack is *added*, not when it is pushed: nothing that unlocks money or machines, and nothing that pins a real host — a routable address, an SSID, a WireGuard peer, a camera URL — goes in a tracked file. Those belong in a gitignored `.env` with a placeholder-bearing `.example` beside it, which is the pattern every host stack here already follows.
 
 ## Class delivery
 
