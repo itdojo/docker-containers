@@ -1,5 +1,7 @@
 # docker-containers
 
+![IT Dojo Docker container stacks](docs/images/hero.jpg)
+
 Small, self-contained Docker Compose stacks that IT Dojo uses in class and on the bench — one directory per stack. Each is independent:
 
 ```bash

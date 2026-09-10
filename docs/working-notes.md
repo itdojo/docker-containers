@@ -15,6 +15,7 @@ Stack-level working notes live beside their stack (`frigate/docs/`, `mediamtx/do
 - 2026-08-16 — Went private rather than staying public. The four stacks added since July (`ntopng`, `frigate`, `hostapd`, `pihole-dnscrypt`) prepare real hosts and carry real network topology; that is bench infrastructure, not classroom material. Reverses the public/`notify` choice recorded 2026-07-16.
 - 2026-08-16 — Local folder `kismet-repo-gpsd` renamed to `kismet-gpsd-repo` to match the remote and its `kismet-gpsd-source` sibling. The local name was a transposition.
 - 2026-08-16 — `excalidraw` allowed to keep `build:` against upstream. Its Dockerfile clones upstream *inside* the image, so the tree stays two files; the rule that matters is "no third-party source on disk", not "no `build:`".
+- 2026-09-10: README hero lives at `docs/images/hero.jpg`, downscaled to 1600px / 183 KB from the 2.4 MB original. The repo's large-media rule (`*.mp4` gitignored, ~3 MB tracked total) means a 2.4 MB image would have been a fifth of the repo for a decoration; the resized copy costs 6%.
 
 ## Ruled out
 
