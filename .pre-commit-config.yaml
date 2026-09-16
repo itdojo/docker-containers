@@ -1,0 +1,87 @@
+# Gate set for project repos — Dojobrain setup-decision
+# "project-repos-take-a-ported-gate-set" (2026-09-13).
+#
+# PORTED from course-core's template config at the SAME pinned revs, not
+# re-derived, so a script that passes here passes in a course. Everything Hugo-
+# and course-specific is dropped: markdownlint, the fence-aware detab fixer, the
+# private-use glyph gate, the full-site render and the link resolver all answer
+# questions a project repo does not ask.
+#
+# Two hooks courseware has no reason to carry. detect-private-key, because
+# itdojo-pki, multihop-vpn and wg-switchboard exist. And gitleaks, the
+# commit-time secret scan — the binary has been in /opt/homebrew/bin wired into
+# nothing. Neither says anything about what is ALREADY in the history; a
+# full-history `gitleaks detect` is a separate sweep.
+#
+# shfmt is deliberately absent. The decision enumerated hygiene + ruff +
+# shellcheck + pytest; adding a formatter that rewrites every shell script in
+# every project repo is a larger change than that authorized. Add it on purpose
+# or not at all.
+#
+# Hooks are per-clone: a fresh clone has only `.git/hooks/*.sample` and every
+# gate here is silently off until `pre-commit install` runs. `fleet bootstrap`
+# performs that install and sets init.templateDir for future clones, so nobody
+# has to remember. That distribution half is the load-bearing one.
+
+default_install_hook_types: [pre-commit, pre-push]
+# Commit-time by default; only the pre-push gates opt in below.
+default_stages: [pre-commit]
+
+exclude: |
+  (?x)^(
+    \.venv/.*|
+    venv/.*|
+    node_modules/.*|
+    dist/.*|
+    build/.*|
+    _staging/.*|
+    _bmad(-output)?/.*|
+    \.claude/skills/bmad-.*|
+    .*\.(png|jpe?g|gif|ico|svg|pcap|pcapng|zip|gz|tgz|pdf|docx|pptx|stl|bin|img|iso|orig)
+  )$
+
+repos:
+  # --- General hygiene -------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # These declare their own `stages` in the upstream manifest, which
+      # overrides default_stages. Pin each explicitly so the fixers never fire
+      # on `git push` and rewrite the entire push range.
+      - id: trailing-whitespace
+        # Preserve intentional Markdown hard-breaks (two trailing spaces).
+        args: [--markdown-linebreak-ext=md]
+        stages: [pre-commit]
+      - id: end-of-file-fixer
+        stages: [pre-commit]
+      - id: check-merge-conflict
+        stages: [pre-commit]
+      - id: check-yaml
+        stages: [pre-commit]
+      - id: check-json
+        # VS Code settings are JSON-with-comments; the validator cannot parse them.
+        exclude: ^\.vscode/
+        stages: [pre-commit]
+      # A key committed once is a key to rotate, not a key to `git rm`.
+      - id: detect-private-key
+        stages: [pre-commit]
+
+  # --- Secrets ---------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  # --- Python: format + lint (ruff replaces black + isort + flake8) ----------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  # --- Shell: lint -----------------------------------------------------------
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
