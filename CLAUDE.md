@@ -28,3 +28,5 @@ Durable notes, decisions, and synthesis for this project live in Dojobrain, not 
 `~/vaults/dojobrain/10-projects/docker-containers/docker-containers-moc.md`.
 This repo carries only source + spec; harvest in-repo material into the vault
 deliberately via Ingest — never bulk-move (see pre-existing-repo-notes-as-ingest-candidates).
+
+Before substantive work, brief yourself from the vault: run a read-only subagent that searches Dojobrain for lessons, gotchas and decisions bearing on the task, starting from this project's MOC, and cites the notes it used. In a session launched from Dojobrain that subagent is `vault-query`; elsewhere, give a general-purpose subagent `~/vaults/dojobrain/.claude/agents/vault-query.md` as its procedure, with the task and the slug `docker-containers`. Quick lookups and one-line fixes skip it.
