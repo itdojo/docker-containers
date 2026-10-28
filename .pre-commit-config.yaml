@@ -85,3 +85,17 @@ repos:
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
+
+  # --- Public repo: no private paths -----------------------------------------
+  # Setup-decision "public-repos-carry-no-private-paths" (2026-10-28). A line
+  # that has to keep a home path carries the marker `public-path-ok`.
+  - repo: local
+    hooks:
+      - id: no-private-paths
+        name: no private paths in a public repo
+        language: pygrep
+        entry: '^(?!.*public-path-ok).*(~/vaults|~/projects/|~/courseware|/Users/)'
+        types: [text]
+        # This file names the patterns it refuses.
+        exclude: ^\.pre-commit-config\.yaml$
+        stages: [pre-commit, pre-push]

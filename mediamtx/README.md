@@ -124,6 +124,6 @@ cannot do for you — uncomment `authMethod` and `authInternalUsers` in
 
 ## Related
 
-- `~/projects/docker-containers/frigate/` — the NVR that consumes these feeds.
+- `../frigate/` — the NVR that consumes these feeds.
 - `docs/working-notes.md` — why these decisions were made, and the gotchas that
   are not visible from the config.

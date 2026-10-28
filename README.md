@@ -7,7 +7,7 @@ cd <stack>
 docker compose up -d
 ```
 
-The repo is deliberately small (~3 MB tracked). Clone the whole thing; there is nothing here that warrants a sparse checkout. It is **private** — see [Visibility](#visibility) before adding a stack or handing anyone the URL.
+The repo is deliberately small (~3 MB tracked). Clone the whole thing; there is nothing here that warrants a sparse checkout. It is **public** — see [Visibility](#visibility) before adding a stack.
 
 ## Stacks
 
@@ -56,11 +56,10 @@ These prepare a host, not just a container. Each carries its own README and a se
 
 ## Visibility
 
-The repo is private as of 2026-08-16, and `policy: auto` in the fleet manifest — fleet checkpoints and pushes it like any other private repo, so uncommitted work does not sit on one machine. It was public and `notify` until then; the change was made because the stacks that have accumulated since (`ntopng`, `frigate`, `hostapd`, `pihole-dnscrypt`) prepare real hosts and carry real network topology, which is not classroom material.
+The repo is public as of 2026-08-21, and `policy: notify` in the fleet manifest — fleet fetches and fast-forwards it but never auto-commits, so every publish is a deliberate `git push`. It was private and `auto` from 2026-08-16 until then, because the stacks that prepare real hosts (`ntopng`, `frigate`, `hostapd`, `pihole-dnscrypt`) carry real network topology. A sweep of their tracked files before the flip found no keys, credentials or real public addresses.
 
-Consequence worth stating plainly: **a stack added here is no longer published by being committed.** Class delivery was never this repo's job — containers reach students via the `bundle-fetch` shortcode rendered from the course site, which works on a classroom LAN with no internet — but anything you want public now needs a deliberate second move.
+Consequence worth stating plainly: **a stack added here is published once it is pushed.** Class delivery was never this repo's job — containers reach students via the `bundle-fetch` shortcode rendered from the course site, which works on a classroom LAN with no internet — so the sensitivity check runs when a stack is added: nothing that unlocks money or machines, and no private paths, which a pre-commit hook refuses.
 
 ## Knowledge hub
 
-Durable notes and the decisions behind this repo live in Dojobrain, not here:
-`~/vaults/dojobrain/10-projects/docker-containers/docker-containers-moc.md`.
+Durable notes and the decisions behind this repo live in the maintainer's Dojobrain knowledge vault, not here.

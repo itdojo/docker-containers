@@ -6,13 +6,13 @@ Stack-level working notes live beside their stack (`frigate/docs/`, `mediamtx/do
 
 ## Constraints
 
-- Repo is **private** as of 2026-08-16 (`policy: auto` in the fleet manifest). Committing a stack no longer publishes it; publishing is a separate deliberate act.
+- Repo is **public** as of 2026-08-21 (`policy: notify` in the fleet manifest), reversing 2026-08-16's move to private. A pushed stack is published, so nothing tracked names a private path; the `no-private-paths` hook refuses one.
 - `*.mp4` is ignored at the root. Large media does not enter history — it cannot be removed later without a rewrite.
 - `https-right-quick/.env` is tracked on purpose. Its re-include must stay in `https-right-quick/.gitignore`; a root-level negation cannot override a nested `.gitignore`.
 
 ## Decisions
 
-- 2026-08-16 — Went private rather than staying public. The four stacks added since July (`ntopng`, `frigate`, `hostapd`, `pihole-dnscrypt`) prepare real hosts and carry real network topology; that is bench infrastructure, not classroom material. Reverses the public/`notify` choice recorded 2026-07-16.
+- 2026-08-21 — Public again, reversing 2026-08-16's move to private for the host-preparing stacks. The vault's `docker-containers-returns-to-public` decision carries why.
 - 2026-08-16 — Local folder `kismet-repo-gpsd` renamed to `kismet-gpsd-repo` to match the remote and its `kismet-gpsd-source` sibling. The local name was a transposition.
 - 2026-08-16 — `excalidraw` allowed to keep `build:` against upstream. Its Dockerfile clones upstream *inside* the image, so the tree stays two files; the rule that matters is "no third-party source on disk", not "no `build:`".
 

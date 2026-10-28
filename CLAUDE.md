@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 A library of small, self-contained Docker Compose stacks — one directory per stack — used in IT Dojo classes and on the bench. It replaces a repo-per-compose-file sprawl: a whole git repo for one YAML file is overhead without benefit. Each stack is independent (`cd <stack> && docker compose up -d`).
 
-The repo is **private** as of 2026-08-16, and therefore `policy: auto` in the fleet manifest — fleet checkpoints and pushes it like any other private repo. It was public and `notify` until then; the stacks added since (`ntopng`, `frigate`, `hostapd`, `pihole-dnscrypt`) prepare real hosts and carry real network topology, which is not classroom material.
+The repo is **public** as of 2026-08-21, and therefore `policy: notify` in the fleet manifest — fleet fetches and fast-forwards it but never auto-commits, so every publish is a deliberate `git push` by hand. It was private and `auto` for five days (2026-08-16 to 2026-08-21). The four host-preparing stacks (`ntopng`, `frigate`, `hostapd`, `pihole-dnscrypt`) are public along with everything else; their real values live in gitignored `.env` files and bind-mounts, and the tracked `.example` files carry placeholders.
 
 ## Rules
 
@@ -16,7 +16,7 @@ The repo is **private** as of 2026-08-16, and therefore `policy: auto` in the fl
 - **Large media never enters history.** `*.mp4` is ignored at the root. `ntopng/docs/` holds 36 MB of explainer video that would outweigh every stack combined and could not be removed later without a history rewrite; the `.html` explainers beside them are tracked.
 - **Folding in an existing repo?** Remove its nested `.git` first, or use `git subtree add` if its history is worth keeping here. A plain `git add .` over a nested repo silently creates a gitlink, which clones as an empty directory for everyone else.
 - **`.env` is gitignored with one deliberate exception.** `https-right-quick/.env` holds demo credentials that are part of the lab and is tracked on purpose. Machine-specific env files (`mediamtx/.env`) stay ignored; ship a tracked `.env.example` beside them.
-- **Private by default, which inverts an old rule.** Adding a stack here no longer publishes it. The sensitivity line still applies at *add* time — nothing that unlocks money or machines, even privately — but the reverse now needs thought too: anything intended to be public requires a deliberate second move, since committing here no longer accomplishes it.
+- **Public, so committing is publishing.** The sensitivity check runs when a stack is *added*, not when it is pushed: nothing that unlocks money or machines, and nothing that pins a real host — a routable address, an SSID, a WireGuard peer, a camera URL — goes in a tracked file. Those belong in a gitignored `.env` with a placeholder-bearing `.example` beside it, which is the pattern every host stack here already follows.
 
 ## Class delivery
 
@@ -24,9 +24,10 @@ Containers reach students via the `bundle-fetch` shortcode rendered from the cou
 
 ## Knowledge hub
 
-Durable notes, decisions, and synthesis for this project live in Dojobrain, not here:
-`~/vaults/dojobrain/10-projects/docker-containers/docker-containers-moc.md`.
+Durable notes, decisions, and synthesis for this project live in the Dojobrain vault, not here, under the slug `docker-containers`. The "Public repos" section of your global contract says where its MOC is.
 This repo carries only source + spec; harvest in-repo material into the vault
 deliberately via Ingest — never bulk-move (see pre-existing-repo-notes-as-ingest-candidates).
 
-Before substantive work, brief yourself from the vault: run a read-only subagent that searches Dojobrain for lessons, gotchas and decisions bearing on the task, starting from this project's MOC, and cites the notes it used. In a session launched from Dojobrain that subagent is `vault-query`; elsewhere, give a general-purpose subagent `~/vaults/dojobrain/.claude/agents/vault-query.md` as its procedure, with the task and the slug `docker-containers`. Quick lookups and one-line fixes skip it.
+Before substantive work, brief yourself from the vault: run a read-only subagent that searches Dojobrain for lessons, gotchas and decisions bearing on the task, starting from this project's MOC, and cites the notes it used. In a session launched from Dojobrain that subagent is `vault-query`; elsewhere, give a general-purpose subagent the vault's `vault-query` agent as its procedure, with the task and the slug `docker-containers`. Quick lookups and one-line fixes skip it.
+
+This repo is public, so everything committed here is published, working notes included. Name another repo by its name and a repo-relative path, such as qol's `script-design.md`, and a vault note by its note name, never by a home-relative or absolute path. A line that has to keep one carries `public-path-ok`, and the `no-private-paths` pre-commit hook refuses any other.

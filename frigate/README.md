@@ -320,7 +320,7 @@ and the file that is committed; `config.yml` is gitignored.
 
 ## Related
 
-- `~/projects/docker-containers/mediamtx/` — the camera-side stack. Frigate's
+- `../mediamtx/` — the camera-side stack. Frigate's
   RTSP credentials are mediamtx users, created by its `mediamtx-users.sh`.
 - `docs/working-notes.md` — why each of these decisions was made, what was ruled
   out, and the gotchas that are not visible from the config files.

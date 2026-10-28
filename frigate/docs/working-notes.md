@@ -13,7 +13,7 @@
 - 2026-08-16: Mixed ingest needs no marker in `config.yml`. Local and remote cameras are configured identically and every camera path is `127.0.0.1:8554` anyway, because they all read the go2rtc restream. Routing is `wg0.conf`'s job; the LAN/tunnel grouping in the example is a comment, not a mechanism.
 - 2026-08-16: Substream guidance reversed for Pi 5 camera hosts. The earlier "dual stream is not optional" was written from the Frigate host's point of view. A Pi 5 has no hardware encoder, so a `-sub` path costs it a software decode plus a second software encode; at one or two cameras per Pi that buys nothing. Publish one 720p stream and give the single input both roles. The split still earns its keep across the tunnel, where the detect stream is pulled continuously over a link whose bandwidth is not ours.
 - 2026-08-16: `frigate-setup.sh` seeds `wireguard/wg0.conf` from the example rather than only complaining it is absent, since the default profile now requires one. It seeds at mode 0600 and still fails the run — the file is a template, not a working tunnel.
-- 2026-08-16: Theme block in `frigate-setup.sh` is `sed -n '62,344p'` of `mediamtx-users.sh`, which is itself a verbatim copy of `~/projects/qol/linux/base_functions.sh`. Copied whole. A partial copy is a restyle.
+- 2026-08-16: Theme block in `frigate-setup.sh` is `sed -n '62,344p'` of `mediamtx-users.sh`, which is itself a verbatim copy of qol's `linux/base_functions.sh`. Copied whole. A partial copy is a restyle.
 
 ## Gotchas
 
@@ -29,7 +29,7 @@
 - **Restarting the WireGuard sidecar destroys Frigate's network stack.** Docker does not restart the dependent container. Frigate has to be bounced afterward; `depends_on` does not cover this. With mixed ingest this is worse than it first looks — it takes LAN cameras and the UI down too, not just the remote cameras.
 - **A Raspberry Pi 5 has no hardware video encoder at all.** BCM2712 kept an HEVC decoder and dropped everything else, including the H.264 encoder the Pi 1–4 all had. This is why a Pi 5 mediamtx host should publish one modest stream rather than a main plus a `-sub`: both encodes would be software, competing with the camera capture on the same cores.
 - **`set -e` plus `pipefail` turns a missing command into a silently-skipped check.** `_local_subnets` began with `ip -o -f inet addr show | awk ...`; on a host without iproute2 the pipeline returned non-zero, `set -e` aborted the whole function before it reached the Docker subnets, and `check_allowedips_overlap` then compared against an empty list and printed PASS. A check that passes because it did not run is worse than no check. Every source in that function is now individually tolerated with `|| true`, and the caller counts how many networks it actually compared — zero produces a warning, never a pass. Same trap applies to any check added later.
-- **The qol theme block emits `/dev/tty: Device not configured` on stderr when there is no TTY.** `_term_cols` does `stty size </dev/tty 2>/dev/null` — the redirect suppresses `stty`'s stderr but not the shell's failure to open `/dev/tty`. Harmless (it falls back to 80 columns and the fallback is correct), invisible interactively, and visible in captured output. The fix belongs upstream in `~/projects/qol/linux/base_functions.sh`, not here — do not patch the local copy.
+- **The qol theme block emits `/dev/tty: Device not configured` on stderr when there is no TTY.** `_term_cols` does `stty size </dev/tty 2>/dev/null` — the redirect suppresses `stty`'s stderr but not the shell's failure to open `/dev/tty`. Harmless (it falls back to 80 columns and the fallback is correct), invisible interactively, and visible in captured output. The fix belongs upstream in qol's `linux/base_functions.sh`, not here — do not patch the local copy.
 
 ## Ruled out
 
@@ -42,9 +42,9 @@
 ## Constraints
 
 - One folder, copied as-is to a Pi 4, a Pi 5, a LattePanda Delta or Sigma, or a Gateworks Venice board. `.env` and `config/config.yml` are the only files edited on the target.
-- Cameras arrive as RTSP from mediamtx (`~/projects/docker-containers/mediamtx/`), typically on separate hosts. Frigate is the consolidation box, not the camera host.
+- Cameras arrive as RTSP from mediamtx (this repo's `mediamtx/`), typically on separate hosts. Frigate is the consolidation box, not the camera host.
 - Recordings go to external storage. SD-card recording is called out as a wear failure, not a preference.
-- Filenames stay lowercase-hyphen; the setup script follows the qol house style (`~/projects/qol/script-design.md`) and the IT Dojo terminal design system.
+- Filenames stay lowercase-hyphen; the setup script follows the qol house style (qol's `script-design.md`) and the IT Dojo terminal design system.
 
 ## Open questions
 

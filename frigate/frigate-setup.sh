@@ -44,10 +44,10 @@ DC=()                 # the docker compose invocation, as an array
 # ‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒
 #                                PRETTY OUTPUT — IT DOJO TERMINAL DESIGN SYSTEM
 # ‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒‒
-# Copied verbatim from ~/projects/qol/linux/base_functions.sh, the canonical
+# Copied verbatim from qol's linux/base_functions.sh, the canonical
 # block, because that library is Linux-only and this script also runs on macOS.
 # Copy it whole or not at all — a partial copy is a restyle. Palette and rules:
-#   ~/vaults/dojobrain/30-references/design-system/itdojo-terminal-design-system.md
+#   the IT Dojo terminal design system; see qol's script-design.md.
 # Decide color and depth once. Re-callable so tests can force a tier.
 #   NO_COLOR         — set to disable color entirely (wins over everything)
 #   QOL_FORCE_COLOR  — set to keep color when stdout is not a TTY (e.g. less -R)
