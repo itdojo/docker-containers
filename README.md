@@ -11,7 +11,7 @@ The repo is deliberately small (~3 MB tracked). Clone the whole thing; there is 
 
 ## Stacks
 
-Fourteen, in two rough groups: single-service utilities you bring up and forget, and multi-service appliances that need a host prepared first.
+Fifteen, in two rough groups: single-service utilities you bring up and forget, and multi-service appliances that need a host prepared first.
 
 ### Utilities
 
@@ -43,6 +43,7 @@ These prepare a host, not just a container. Each carries its own README and a se
 | `mediamtx` | MediaMTX media server (RTSP/WebRTC), ffmpeg build. `mediamtx-users.sh` generates the hashed credential file. |
 | `ntopng` | An ntopng sensor sitting *inline* on an L2 bridge over two physical ports, monitoring the bridge master only. Two network positions — outside the firewall or cut into a LAN link — selected by `POSITION` in `.env`. Carries host netplan, sysctl tuning, and a systemd unit under `host/` and `etc/`. |
 | `pihole-dnscrypt` | Pi-hole with dnscrypt-proxy as its only upstream, answering DNS on a WireGuard interface rather than the LAN. |
+| `plex` | Plex Media Server on a Pi, reading an **exFAT** external drive through the kernel's own driver — the stack carries the `/etc/fstab` line that mounts `/dev/sda2` read-only before Docker starts. Host networking; media is read-only by design. |
 
 ## Conventions
 

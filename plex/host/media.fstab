@@ -1,0 +1,2 @@
+# /etc/fstab line for the Plex media drive (exFAT, read-only). See README.md.
+UUID=6AAC-8DD4  /mnt/media  exfat  ro,nofail,uid=1000,gid=1000,dmask=0022,fmask=0133,x-systemd.device-timeout=30s,x-systemd.before=docker.service  0  0
