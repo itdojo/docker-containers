@@ -56,7 +56,7 @@
 
       <h2>Jump to a location</h2>
       <div class="goto">
-        <input id="goto-input" type="text" placeholder="lat, lon  e.g. 36.8206, -76.1182" />
+        <input id="goto-input" type="text" placeholder="lat, lon  e.g. 48.8584, 2.2945" />
         <button id="goto-btn">Go</button>
       </div>
       <p class="hint">Tiles: <span id="tile-source" class="pill">public OSM</span></p>
@@ -106,8 +106,8 @@
     // tileLabel: 'offline (Lab 15)',
     // tileMaxZoom: 19,
 
-    center: [36.8206, -76.1182],  // opening view — pan/zoom or edit to your area
-    zoom: 13,
+    center: [20, 0],              // opening view: the whole world, so it shows nobody's area
+    zoom: 2,                      // pan/zoom, or type lat, lon in the panel
     decimals: 6,                  // coordinate precision (6 ≈ 0.1 m)
   };
 
@@ -228,7 +228,7 @@
   function goTo() {
     const raw = document.getElementById('goto-input').value.trim();
     const m = raw.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
-    if (!m) { alert('Enter coordinates as: lat, lon  (e.g. 36.8206, -76.1182)'); return; }
+    if (!m) { alert('Enter coordinates as: lat, lon  (e.g. 48.8584, 2.2945)'); return; }
     map.setView([parseFloat(m[1]), parseFloat(m[2])], Math.max(map.getZoom(), 15));
   }
   document.getElementById('goto-btn').addEventListener('click', goTo);

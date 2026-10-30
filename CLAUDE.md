@@ -24,7 +24,10 @@ Containers reach students via the `bundle-fetch` shortcode rendered from the cou
 
 ## Knowledge hub
 
-Durable notes, decisions, and synthesis for this project live in Dojobrain, not here:
-`~/vaults/dojobrain/10-projects/docker-containers/docker-containers-moc.md`.
+Durable notes, decisions, and synthesis for this project live in the Dojobrain vault, not here, under the slug `docker-containers`. The "Public repos" section of your global contract says where its MOC is.
 This repo carries only source + spec; harvest in-repo material into the vault
 deliberately via Ingest — never bulk-move (see pre-existing-repo-notes-as-ingest-candidates).
+
+Before substantive work, brief yourself from the vault: run a read-only subagent that searches Dojobrain for lessons, gotchas and decisions bearing on the task, starting from this project's MOC, and cites the notes it used. In a session launched from Dojobrain that subagent is `vault-query`; elsewhere, give a general-purpose subagent the vault's `vault-query` agent as its procedure, with the task and the slug `docker-containers`. Quick lookups and one-line fixes skip it.
+
+This repo is public, so everything committed here is published, working notes included. Name another repo by its name and a repo-relative path, such as qol's `script-design.md`, and a vault note by its note name, never by a home-relative or absolute path. A line that has to keep one carries `public-path-ok`, and the `no-private-paths` pre-commit hook refuses any other.

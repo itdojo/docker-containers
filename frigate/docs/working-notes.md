@@ -13,7 +13,7 @@
 - 2026-08-16: Mixed ingest needs no marker in `config.yml`. Local and remote cameras are configured identically and every camera path is `127.0.0.1:8554` anyway, because they all read the go2rtc restream. Routing is `wg0.conf`'s job; the LAN/tunnel grouping in the example is a comment, not a mechanism.
 - 2026-08-16: Substream guidance reversed for Pi 5 camera hosts. The earlier "dual stream is not optional" was written from the Frigate host's point of view. A Pi 5 has no hardware encoder, so a `-sub` path costs it a software decode plus a second software encode; at one or two cameras per Pi that buys nothing. Publish one 720p stream and give the single input both roles. The split still earns its keep across the tunnel, where the detect stream is pulled continuously over a link whose bandwidth is not ours.
 - 2026-08-16: `frigate-setup.sh` seeds `wireguard/wg0.conf` from the example rather than only complaining it is absent, since the default profile now requires one. It seeds at mode 0600 and still fails the run — the file is a template, not a working tunnel.
-- 2026-08-16: Theme block in `frigate-setup.sh` is `sed -n '62,344p'` of `mediamtx-users.sh`, which is itself a verbatim copy of `~/projects/qol/linux/base_functions.sh`. Copied whole. A partial copy is a restyle.
+- 2026-08-16: Theme block in `frigate-setup.sh` is `sed -n '62,344p'` of `mediamtx-users.sh`, which is itself a verbatim copy of qol's `linux/base_functions.sh`. Copied whole. A partial copy is a restyle.
 - 2026-08-20: `LIBVA_DRIVER_NAME` is passed in the BARE form (`- LIBVA_DRIVER_NAME`), not `${LIBVA_DRIVER_NAME:-}`, and `.env.example` ships the line COMMENTED. Both halves are required: the bare form still injects `""` if `.env` assigns an empty value, and only omitting the line entirely leaves the variable unset. Verified with `docker compose run`: empty assignment yields `SET (value=[])`, an omitted line yields `UNSET`.
 - 2026-08-20: `RENDER_GID` has no fallback in `compose.openvino.yaml` — `${RENDER_GID:?...}` fails the run instead. No number is portable (Debian 12 ~104-106, Ubuntu 22.04 ~110, Ubuntu 24.04 993), and the old `:-105` default was wrong on modern Ubuntu in a way that surfaces as unrelated permission errors. `frigate-setup.sh` now detects and writes the real GID, so the loud failure only reaches someone who skipped the script.
 
@@ -36,7 +36,7 @@
 - **Frigate 0.17 hard-crashes on a `go2rtc:` block whose `streams:` key exists with everything commented out.** `streams: None` reaches `verify_valid_live_stream_names` and raises `AttributeError: 'NoneType' object has no attribute 'keys'` during config validation — before any camera is touched, and the traceback names pydantic, not the config. Either define at least one stream or delete the `go2rtc:` block entirely.
 - **A camera publishing H.264 High 4:2:2 (`profile 0x7A`) cannot be hardware-decoded on Intel iGPUs.** `vainfo` lists no 4:2:2 VLD entrypoint, and the failure is the misleading `Impossible to convert between the formats supported by the filter 'Parsed_fps_0' and the filter 'auto_scale_0'`. That camera needs a per-camera `hwaccel_args: []`; the fix does not belong at the global level, where it would give up hardware decode for every other camera.
 - **A leftover container from the OTHER network overlay blocks the new one and looks like a firewall.** Switching `COMPOSE_FILE` between `compose.ports.yaml` and `compose.wireguard.yaml` leaves the previous project's container running and holding 8554/8555/8971; Compose reports it only as an "orphan" warning. Worse, Docker's DNAT keeps forwarding those ports into the old sidecar's netns where nothing listens, so packets are swallowed with no RST and `nmap` from another host reports **filtered** — indistinguishable from a firewall drop on a box with no firewall at all. `docker compose down --remove-orphans` before switching overlays.
-- **The qol theme block emits `/dev/tty: Device not configured` on stderr when there is no TTY.** `_term_cols` does `stty size </dev/tty 2>/dev/null` — the redirect suppresses `stty`'s stderr but not the shell's failure to open `/dev/tty`. Harmless (it falls back to 80 columns and the fallback is correct), invisible interactively, and visible in captured output. The fix belongs upstream in `~/projects/qol/linux/base_functions.sh`, not here — do not patch the local copy.
+- **The qol theme block emits `/dev/tty: Device not configured` on stderr when there is no TTY.** `_term_cols` does `stty size </dev/tty 2>/dev/null` — the redirect suppresses `stty`'s stderr but not the shell's failure to open `/dev/tty`. Harmless (it falls back to 80 columns and the fallback is correct), invisible interactively, and visible in captured output. The fix belongs upstream in qol's `linux/base_functions.sh`, not here — do not patch the local copy.
 
 ## Ruled out
 
@@ -49,9 +49,9 @@
 ## Constraints
 
 - One folder, copied as-is to a Pi 4, a Pi 5, a LattePanda Delta or Sigma, or a Gateworks Venice board. `.env` and `config/config.yml` are the only files edited on the target.
-- Cameras arrive as RTSP from mediamtx (`~/projects/docker-containers/mediamtx/`), typically on separate hosts. Frigate is the consolidation box, not the camera host.
+- Cameras arrive as RTSP from mediamtx (this repo's `mediamtx/`), typically on separate hosts. Frigate is the consolidation box, not the camera host.
 - Recordings go to external storage. SD-card recording is called out as a wear failure, not a preference.
-- Filenames stay lowercase-hyphen; the setup script follows the qol house style (`~/projects/qol/script-design.md`) and the IT Dojo terminal design system.
+- Filenames stay lowercase-hyphen; the setup script follows the qol house style (qol's `script-design.md`) and the IT Dojo terminal design system.
 
 ## Open questions
 

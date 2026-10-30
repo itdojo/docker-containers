@@ -6,7 +6,7 @@
 - 2026-08-13: `mediamtx.yml` ships authentication **commented out**, including `authInternalUsers: []`. Uncommenting is the deliberate enable step; the lab default stays anonymous.
 - 2026-08-13: `mediamtx-users.sh` always writes a final "managed tail" entry (`user: any`, ips `127.0.0.1,::1`, actions api/metrics/pprof). With `authInternalUsers: []` the built-in localhost API user is gone, and without this the API answers nothing on the Pi itself.
 - 2026-08-13: argon2 stays at the CLI defaults (m=4096, t=3, p=1). Verification runs per request and HLS requests segments constantly; a heavier profile is paid on every segment on a Pi, not once at login.
-- 2026-08-13: Script embeds the qol theme block verbatim rather than sourcing `linux/base_functions.sh`, because it must also run on macOS. Region copied is lines 44–371 of `~/projects/qol/linux/base_functions.sh`; keep it byte-identical.
+- 2026-08-13: Script embeds the qol theme block verbatim rather than sourcing `linux/base_functions.sh`, because it must also run on macOS. Region copied is lines 44–371 of qol's `linux/base_functions.sh`; keep it byte-identical.
 
 - 2026-08-16: Live-viewing defaults win on the `cam` path. `rpiCameraFPS` stays at 30 and the NVR tuning (15 fps, IDR 15) is documented in a FEEDING FRIGATE block rather than applied. Every Pi already deployed keeps its current behavior; only a host that actually feeds Frigate is asked to change.
 - 2026-08-16: The USB path ships as two labeled variants — native H.264 with `-c:v copy`, and MJPEG with a software encode — instead of one example. Which one a camera can do is a property of the camera, not a preference, and `v4l2-ctl --list-formats-ext` is the way to find out.
@@ -35,4 +35,4 @@
 
 - Deployment target is a Raspberry Pi with one camera; the script must also run on macOS for authoring.
 - Passwords: minimum 6 characters, argon2id, plaintext never written to disk.
-- Filenames stay lowercase-hyphen; scripts follow the qol house style (`~/projects/qol/script-design.md`).
+- Filenames stay lowercase-hyphen; scripts follow the qol house style (qol's `script-design.md`).
